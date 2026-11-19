@@ -507,8 +507,7 @@ async function sceneEnding(code) {
   await waitClick();
   card.hidden = true;
 
-  // 엔딩 글 (엔딩 A에는 빈 밥상, 엔딩 B·C에는 인물 그림)
-  if (code === "A") addSprite("prop_table_empty", { cx: 320, bottom: 244 });
+  // 엔딩 글 (엔딩 A는 배경 end_a.png 에 빈 밥상이 그려져 있음, 엔딩 B·C에는 인물 그림)
   if (code === "B") addSprite("char_samani", { cx: 320, bottom: 240 });
   if (code === "C") {
     addSprite("char_samani", { cx: 250, bottom: 240 });
@@ -516,6 +515,10 @@ async function sceneEnding(code) {
     addSprite("char_skull", { cx: 100, bottom: 240 });
   }
   await sayLines(E.lines);
+
+  // 대사가 끝나면 대화창을 숨기고, 클릭할 때까지 마지막 그림을 보여 준다
+  hideDialog();
+  await waitClick();
 
   // 크레딧
   await transition(() => { setBg("bg_forest", true); });
