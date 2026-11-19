@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>인정을 걸어라 — 사만이 본풀이</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 640×360 게임 화면. 안의 모든 것은 이 크기를 기준으로 좌표를 잡습니다. -->
+  <div id="stage">
+    <div id="bg"></div>              <!-- 배경 그림 -->
+    <div id="sprites"></div>         <!-- 캐릭터·NPC -->
+    <div id="titleui" hidden></div>  <!-- 타이틀 글자 -->
+    <div id="card" hidden></div>     <!-- 엔딩 제목·게임 오버 큰 글씨·크레딧 -->
+    <div id="hint" hidden></div>     <!-- 상단 안내 문구 -->
+    <div id="hud" hidden>선함 <b id="goodNum">0</b></div>
+    <div id="toast"></div>           <!-- +1 알림 -->
+
+    <div id="dialog" hidden>
+      <div id="name"></div>
+      <div id="text"></div>
+      <div id="next">▼</div>
+    </div>
+    <div id="choices"></div>
+
+    <div id="fade"></div>           <!-- 장면 전환용 검은 막 -->
+  </div>
+
+  <button id="fsBtn" title="전체 화면 (F)">전체 화면 (F)</button>
+
+  <script src="dialogue.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
