@@ -39,25 +39,26 @@ const BG_COLOR = {
   end_c:     "#2a4a5a",   // 엔딩 C 그림 (선택)
 };
 
-// 캐릭터·아이콘 크기 (화면 안 px). 도트 그림은 원본의 정수배(1·2·3배)로만 쓰세요. 예) 16×32 NPC → 32×64
+// 캐릭터·아이콘 크기 (화면 안 px). 도트 그림은 원본의 정수배(1·2·3배)로만 쓰세요. 예) 16×32 NPC → 48×96 (3배)
+// 차사(96×96 원본)는 3배(288)로 키우면 화면 높이(360)를 넘고 셋이 겹쳐서 2배(192) 그대로 둠
 const SPRITE = {
-  char_samani:          { w: 32,  h: 64,  label: "사만이" },
-  char_wife:            { w: 32,  h: 64,  label: "아내" },
-  char_kid:             { w: 32,  h: 32,  label: "아이" },
+  char_samani:          { w: 48,  h: 96,  label: "사만이" },
+  char_wife:            { w: 48,  h: 96,  label: "아내" },
+  char_kid:             { w: 48,  h: 48,  label: "아이" },
   // 상반신 일러스트 (96×96 원본을 2배). 파일이 없으면 화면에 안 나옴
   portrait_samani:      { w: 192, h: 192, label: "사만이", optional: true },
   portrait_wife:        { w: 192, h: 192, label: "부인", optional: true },
-  char_osamani:         { w: 32,  h: 64,  label: "오사만이" },
-  char_skull:           { w: 64,  h: 64,  label: "백년해골" },
+  char_osamani:         { w: 48,  h: 96,  label: "오사만이" },
+  char_skull:           { w: 96,  h: 96,  label: "백년해골" },
   char_chasa_myeong:    { w: 192, h: 192, label: "명차지 차사" },
   char_chasa_bok:       { w: 192, h: 192, label: "복차지 차사" },
   char_chasa_nokmyeong: { w: 192, h: 192, label: "녹명차지 차사" },
-  npc_child1:           { w: 32,  h: 64,  label: "아이" },
-  npc_child2:           { w: 32,  h: 64,  label: "아이" },
-  npc_elder1:           { w: 32,  h: 64,  label: "노인" },
-  npc_elder2:           { w: 32,  h: 64,  label: "노인" },
-  npc_osamani:          { w: 32,  h: 64,  label: "오사만이" },
-  npc_merchant:         { w: 32,  h: 64,  label: "총 상인" },
+  npc_child1:           { w: 48,  h: 96,  label: "아이" },
+  npc_child2:           { w: 48,  h: 96,  label: "아이" },
+  npc_elder1:           { w: 48,  h: 96,  label: "노인" },
+  npc_elder2:           { w: 48,  h: 96,  label: "노인" },
+  npc_osamani:          { w: 48,  h: 96,  label: "오사만이" },
+  npc_merchant:         { w: 48,  h: 96,  label: "총 상인" },
   prop_table_food:      { w: 64,  h: 48,  label: "제사상" },
   prop_table_empty:     { w: 64,  h: 48,  label: "빈 밥상" },
   icon_horse:           { w: 32,  h: 32,  label: "말" },
@@ -71,10 +72,10 @@ const HOUSE_DOOR = { x: 302, y: 52, w: 110, h: 136 };
 // 장삿길(클릭 화면)의 NPC: 대화 상대 하나에 그림 여러 개 가능 (아이 둘, 노인 둘이 함께 나옴)
 // [그림 이름, x, y]  (x, y = 왼쪽 위 모서리, 640×360 기준)
 const MARKET_NPCS = {
-  children: [["npc_child1", 245, 182], ["npc_child2", 282, 190]],
-  elders:   [["npc_elder1", 350, 182], ["npc_elder2", 387, 190]],
-  osamani:  [["npc_osamani", 460, 186]],
-  merchant: [["npc_merchant", 548, 190]],
+  children: [["npc_child1", 112, 152], ["npc_child2", 150, 158]],   // 왼쪽 앞 귤 좌판 앞
+  elders:   [["npc_elder1", 215, 102], ["npc_elder2", 253, 108]],   // 왼쪽 뒤 좌판 앞
+  osamani:  [["npc_osamani", 427, 88]],                             // 오른쪽 뒤 좌판 앞
+  merchant: [["npc_merchant", 508, 152]],                           // 오른쪽 앞 좌판 앞
 };
 // 차사 3명 이름과 그림
 const CHASA = [
