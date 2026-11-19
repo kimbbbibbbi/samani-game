@@ -14,7 +14,6 @@ const CONFIG = {
   typeMs: 30,          // 글자 한 개가 나오는 시간(ms). 작을수록 빠름
   showScore: true,     // 화면 오른쪽 위에 선함 점수 보이기 (발표 시연용. 끄려면 false)
   goodForC: 8,         // 이 점수 이상이면 엔딩 C  (선함 최대 10: 질문 4 + 부인 1 + 아이들 1 + 노인들 1 + 대접 3)
-  clearTreat: 2,       // 차사 대접에서 이만큼 맞혀야 통과
   // 세 번 부름 미니게임
   mgVolleyMs: 1500,    // 차사들이 "사만아!"를 쏘는 간격. 한 번 쏠 때마다 부른 횟수 +1, 모두 3번
   mgFallMs: 600,       // 글자가 위에서 사만이까지 날아오는 시간 (작을수록 빠름)
@@ -516,13 +515,13 @@ async function sceneChasa() {
       continue;                                   // 저승사자 장면 처음부터 다시
     }
     showChasa();
-    const rightCount = await treatChasa();
+    const passed = await treatChasa();           // 하나라도 틀리면 false
 
-    if (rightCount >= CONFIG.clearTreat) {
+    if (passed) {
       await sayLines(SCRIPT.treatPass);
       return;
     }
-    await sceneGameOver();   // 끝나면 반복문 처음으로 돌아가 다시 도전
+    await sceneGameOver();   // 끝나면 반복문 처음으로 돌아가 저승사자 장면부터 다시
   }
 }
 
@@ -631,24 +630,22 @@ async function callMinigame() {
   return result;
 }
 
-/* 대접: 차사 셋에게 하나씩. 맞힌 수를 돌려줌 */
+/* 대접: 차사 셋에게 하나씩. 셋 다 맞히면 true, 하나라도 틀리면 그 자리에서 false */
 async function treatChasa() {
-  let right = 0;
   const keys = Object.keys(SCRIPT.treatChoices);   // horse, shoes, rice
   const options = keys.map((k) => ({ text: SCRIPT.treatChoices[k], icon: "icon_" + k }));
   for (let i = 0; i < SCRIPT.treat.length; i++) {
     const t = SCRIPT.treat[i];
     showChasa(i);
     const picked = await sayLines(t.lines, options);
-    if (keys[picked] === t.answer) {
-      right++;
-      addGood(1);
-      await sayLines(t.right);
-    } else {
-      await sayLines(t.wrong);
+    if (keys[picked] !== t.answer) {
+      await sayLines(t.wrong);     // 틀린 차사가 화내고 → 게임 오버
+      return false;
     }
+    addGood(1);
+    await sayLines(t.right);
   }
-  return right;
+  return true;
 }
 
 /* 게임 오버: 끌려가는 짧은 화면 */

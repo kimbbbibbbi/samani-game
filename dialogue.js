@@ -199,7 +199,7 @@ const SCRIPT = {
     label: "총포상",
     lines: [[NAMES.merchant, "백 냥으로 내가 파는 총을 사고 인생을 바꾸라고."]],                          // ★
     choices: [
-      { text: "총을 산다 (장삿길 끝)", next: true },
+      { text: "총을 산다", next: true },
       { text: "조금 더 둘러본다", next: false },
     ],
     paid: [
@@ -279,7 +279,8 @@ const SCRIPT = {
   },
 
   /* 대접. 정답: 명차지=horse, 복차지=shoes, 녹명차지=rice
-     투정 대사는 ★ 조원 대본, 반응 대사는 임시                            */
+     하나라도 틀리면 그 차사의 wrong 대사 → 게임 오버 → 저승사자 장면부터 다시
+     투정 대사는 ★ 조원 대본, right·wrong 대사는 임시                       */
   treatChoices: {
     horse: "백마",
     shoes: "당혜",     // 그림이 당혜(가죽신)라 이름도 맞춤. 짚신 그림으로 바꾸면 "짚신"으로
@@ -291,14 +292,20 @@ const SCRIPT = {
       answer: "horse",
       lines: [[NAMES.myeong, "나는 종아리가 아파 더는 못 가겠다.\n누가 말이나 한 필 주면 좋겠군."]],          // ★
       right: [[NAMES.myeong, "허허, 이 말이면 저승길도 가볍겠구나!"]],
-      wrong: [[NAMES.myeong, "이게 아니다. 다리는 여전히 아프구나."]],
+      wrong: [
+        [NAMES.myeong, "종아리가 터질 것 같다 했거늘, 이따위를 내미느냐!"],
+        [NAMES.myeong, "네 정성이 고작 이 정도로구나.\n얘들아, 이 녀석을 당장 데려가자!"],
+      ],
     },
     {
       key: "bok",
       answer: "shoes",
       lines: [[NAMES.bok, "그나저나 내 발도 아픈데\n신발이나 한 켤레 있었으면..."]],                         // ★
       right: [[NAMES.bok, "이거 딱 맞네! 발이 다 편하구나."]],
-      wrong: [[NAMES.bok, "이건 내가 바라던 게 아닌데."]],
+      wrong: [
+        [NAMES.bok, "신을 게 없다 하지 않았소!\n이걸 신고 저승길을 가란 말이오?"],
+        [NAMES.bok, "형님, 사람 말을 귓등으로 듣는 놈입니다.\n데려가도 아깝지 않겠습니다."],
+      ],
     },
     {
       key: "nokmyeong",
@@ -308,7 +315,10 @@ const SCRIPT = {
         [NAMES.nokmyeong, "형님네들! 여기 귀한 음식이 가득합니다!\n일단 한 술씩 뜹시다!"],                       // ★
         ["", "(냠냠, 쩝쩝...)"],                                                                   // ★
       ],
-      wrong: [[NAMES.nokmyeong, "배는 여전히 비었다. 마음에 안 드는구나."]],
+      wrong: [
+        [NAMES.nokmyeong, "배가 고파 쓰러지겠다는데 이걸 먹으라고?"],
+        [NAMES.nokmyeong, "형님네들, 저승에 가서 배불리 먹읍시다.\n이놈도 같이요!"],
+      ],
     },
   ],
   /* 대접 통과 → 명부 장면으로 */
