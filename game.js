@@ -271,9 +271,11 @@ function choose(options, opts = {}) {
         wrap.appendChild(art);
         b.appendChild(wrap);
       }
-      const k = document.createElement("span");
-      k.className = "key"; k.textContent = i + 1;
-      b.appendChild(k);
+      if (!opts.noKey) {   // opts.noKey = true 면 앞의 번호(1, 2...)를 숨김. 숫자키로 고르기는 그대로 됨
+        const k = document.createElement("span");
+        k.className = "key"; k.textContent = i + 1;
+        b.appendChild(k);
+      }
       b.appendChild(document.createTextNode(o.text));
       b.addEventListener("click", (e) => { e.stopPropagation(); pick(i); });
       box.appendChild(b);
@@ -351,7 +353,7 @@ async function sceneTitle() {
     ui.appendChild(text);
     logo.onload = () => { ui.innerHTML = ""; ui.appendChild(logo); };   // title_logo.png 가 있으면 그걸로 대체
   });
-  await choose([{ text: SCRIPT.title.start }], { center: true });
+  await choose([{ text: SCRIPT.title.start }], { center: true, noKey: true });
 }
 
 /* 성격 질문 3개 */
