@@ -158,3 +158,18 @@ html, body {
 #stage.skin .choice .key { color: #a0522d; }
 #stage.skin .choice:hover, #stage.skin .choice.sel { color: #7a1f1f; filter: brightness(1.08); }
 #stage.skin .choice:hover::before { content: "▶"; color: #c0702a; font-size: 10px; margin-right: -4px; }
+
+/* 그림이 없으면 아무것도 안 보이는 선택 그림 (상반신 일러스트 등) */
+.art.optional .ph { display: none; }
+/* 머리 위 효과 글자 (♥, $, ;) */
+.fx {
+  position: absolute; transform: translate(-50%, 0);
+  font: 22px "Galmuri14", monospace; color: #ff6b8a;
+  text-shadow: 2px 2px 0 #000; animation: fxpop 1.8s steps(12) forwards; pointer-events: none;
+}
+@keyframes fxpop { 0% { opacity: 0; margin-top: 8px; } 20% { opacity: 1; margin-top: 0; } 80% { opacity: 1; margin-top: -6px; } 100% { opacity: 0; margin-top: -8px; } }
+
+/* 1스테이지 문 (투명한 클릭 영역, 마우스를 올리면 테두리) */
+.door { position: absolute; }
+.door:hover { outline: 2px dashed #ffd777; outline-offset: -2px; background: rgba(255, 215, 119, .12); }
+.door .lab { top: 4px; bottom: auto; margin: 0; }

@@ -13,7 +13,7 @@
 const CONFIG = {
   typeMs: 30,          // 글자 한 개가 나오는 시간(ms). 작을수록 빠름
   showScore: true,     // 화면 오른쪽 위에 선함 점수 보이기 (발표 시연용. 끄려면 false)
-  goodForC: 8,         // 이 점수 이상이면 엔딩 C
+  goodForC: 8,         // 이 점수 이상이면 엔딩 C  (선함 최대 10: 질문 4 + 부인 1 + 아이들 1 + 노인들 1 + 대접 3)
   clearTreat: 2,       // 차사 대접에서 이만큼 맞혀야 통과
 };
 
@@ -43,6 +43,10 @@ const BG_COLOR = {
 const SPRITE = {
   char_samani:          { w: 32,  h: 64,  label: "사만이" },
   char_wife:            { w: 32,  h: 64,  label: "아내" },
+  char_kid:             { w: 32,  h: 32,  label: "아이" },
+  // 상반신 일러스트 (96×96 원본을 2배). 파일이 없으면 화면에 안 나옴
+  portrait_samani:      { w: 192, h: 192, label: "사만이", optional: true },
+  portrait_wife:        { w: 192, h: 192, label: "부인", optional: true },
   char_osamani:         { w: 32,  h: 64,  label: "오사만이" },
   char_skull:           { w: 64,  h: 64,  label: "백년해골" },
   char_chasa_myeong:    { w: 192, h: 192, label: "명차지 차사" },
@@ -61,18 +65,16 @@ const SPRITE = {
   icon_rice:            { w: 32,  h: 32,  label: "밥" },
 };
 
-// 장삿길(클릭 화면)에서 NPC가 서 있는 자리 (x, y = 왼쪽 위 모서리). y는 240 이하로.
-const MARKET_POS = {
-  child1:   { x: 245, y: 182 },
-  child2:   { x: 290, y: 198 },
-  elder1:   { x: 350, y: 182 },
-  elder2:   { x: 395, y: 198 },
-  osamani:  { x: 460, y: 186 },
-  merchant: { x: 548, y: 190 },
-};
-const MARKET_SPRITE = {   // NPC id → 그림 이름
-  child1: "npc_child1", child2: "npc_child2", elder1: "npc_elder1",
-  elder2: "npc_elder2", osamani: "npc_osamani", merchant: "npc_merchant",
+// 1스테이지 집 배경(bg_house.png)에서 문이 있는 자리. 이 네모를 누르면 장터로 나간다 (640×360 기준)
+const HOUSE_DOOR = { x: 302, y: 52, w: 110, h: 136 };
+
+// 장삿길(클릭 화면)의 NPC: 대화 상대 하나에 그림 여러 개 가능 (아이 둘, 노인 둘이 함께 나옴)
+// [그림 이름, x, y]  (x, y = 왼쪽 위 모서리, 640×360 기준)
+const MARKET_NPCS = {
+  children: [["npc_child1", 245, 182], ["npc_child2", 282, 190]],
+  elders:   [["npc_elder1", 350, 182], ["npc_elder2", 387, 190]],
+  osamani:  [["npc_osamani", 460, 186]],
+  merchant: [["npc_merchant", 548, 190]],
 };
 // 차사 3명 이름과 그림
 const CHASA = [
@@ -114,6 +116,7 @@ function setBg(key, dim = false) {
   const bg = $("bg");
   bg.innerHTML = "";
   bg.classList.toggle("dim", dim);
+  if (key === "black") return;
   const el = makeArt(key, 640, 360, "");
   const ph = el.querySelector(".ph");
   ph.style.background = BG_COLOR[key] || "#222";
@@ -132,21 +135,25 @@ function addSprite(key, opts = {}) {
   const y = opts.bottom !== undefined ? opts.bottom - def.h : opts.y;
   el.style.left = x + "px";
   el.style.top = y + "px";
+  el.dataset.key = key;
+  if (opts.optional || def.optional) el.classList.add("optional");
   $("sprites").appendChild(el);
   return el;
 }
 function clearSprites() { $("sprites").innerHTML = ""; }
 
 function addGood(n) {
-  good = Math.max(0, Math.min(10, good + n));
+  if (!n) return;
+  good += n;            // 마이너스도 허용
   updateHud();
-  if (n > 0) toast("선함 +" + n);
+  toast("선함 " + (n > 0 ? "+" : "") + n, n < 0);
 }
 function updateHud() { $("goodNum").textContent = good; }
 function showHud(on) { $("hud").hidden = !(on && CONFIG.showScore); }
-function toast(msg) {
+function toast(msg, bad = false) {
   const t = $("toast");
   t.textContent = msg;
+  t.style.color = bad ? "#ff8a8a" : "#9fe39f";
   t.classList.add("show");
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.remove("show"), 1200);
@@ -178,8 +185,8 @@ document.addEventListener("keydown", (e) => {
 
 /* 대사 한 줄. wait=false 면 글자만 다 나오면 바로 끝남 (선택지 앞에서 씀) */
 function say(who, text, wait = true) {
-  // dialogue.js 에서 ["@bg", "bg_house"] 처럼 쓰면 대사 대신 배경을 바꾼다
-  if (who === "@bg") { setBg(text); return Promise.resolve(); }
+  // dialogue.js 의 연출 명령 (대사 대신 화면을 바꾼다). 자세한 쓰는 법은 dialogue.js 맨 위
+  if (who && who[0] === "@") return direct(who, text, wait);
   return new Promise((resolve) => {
     const dlg = $("dialog");
     dlg.hidden = false;
@@ -211,6 +218,32 @@ function say(who, text, wait = true) {
       if (i >= text.length) done();
     }, CONFIG.typeMs);
   });
+}
+
+/* 연출 명령 실행.  ["@bg", 배경]  ["@show", 그림, 가로중심]  ["@fx", 글자, 가로, 세로]  ["@wait", 밀리초] */
+async function direct(cmd, a, b, c) {
+  const args = Array.isArray(a) ? a : [a];
+  if (cmd === "@bg") {                       // 배경을 부드럽게 바꿈
+    const f = $("fade");
+    f.classList.add("on"); await sleep(320);
+    setBg(args[0]);
+    f.classList.remove("on"); await sleep(320);
+  } else if (cmd === "@show") {              // 인물·소품을 화면에 올림 (그림이 없으면 아무것도 안 보임)
+    addSprite(args[0], { cx: Number(args[1] ?? 320), bottom: Number(args[2] ?? 240) });
+  } else if (cmd === "@fx") {                // 머리 위 효과 글자 (♥, $, ; 등)
+    const fx = document.createElement("div");
+    fx.className = "fx";
+    fx.textContent = args[0];
+    if (args[0] === "$") fx.style.color = "#ffd34d";      // 돈은 금색
+    if (args[0].includes(";")) fx.style.color = "#9fd0ff"; // 곤란함은 하늘색
+    fx.style.left = (args[1] ?? 320) + "px";
+    fx.style.top = (args[2] ?? 150) + "px";
+    $("sprites").appendChild(fx);
+    setTimeout(() => fx.remove(), 1800);   // 잠깐 보였다가 사라짐
+    await sleep(900);
+  } else if (cmd === "@wait") {
+    await sleep(Number(args[0]) || 400);
+  }
 }
 
 /* 선택지를 띄우고 고른 번호를 돌려준다.
@@ -259,6 +292,7 @@ async function ask(who, text, options, opts) {
 async function sayLines(lines, choices) {
   for (let i = 0; i < lines.length; i++) {
     const [who, text] = lines[i];
+    if (who && who[0] === "@") { await direct(who, lines[i].slice(1)); continue; }
     if (choices && i === lines.length - 1) return ask(who, text, choices);
     await say(who, text);
   }
@@ -326,18 +360,60 @@ async function sceneQuiz() {
   await sayLines(SCRIPT.quizIntro);
   for (const q of SCRIPT.quiz) {
     const i = await ask("", q.question, q.choices);
-    if (q.choices[i].good) addGood(1);
+    addGood(q.choices[i].score || 0);
   }
   await sayLines(SCRIPT.quizOutro);
 }
 
-/* 장삿길 (클릭 화면) */
-async function sceneMarket() {
-  await transition(() => {
-    setBg("bg_house");   // 도입은 집 안에서 시작, dialogue.js 의 "@bg" 줄에서 장터로 바뀜
-    showHud(true);
-    addSprite("char_wife", { cx: 320, bottom: 240 });
+/* 1스테이지: 사만이 집. 검은 화면 나레이션 → 집 → 부인에게 말 걸기(선택) */
+async function sceneHouse() {
+  const H = SCRIPT.house;
+  await transition(() => { setBg("black"); showHud(true); });
+  await sayLines(H.intro);                 // 이 안의 "@bg", "@show", "@fx" 가 화면을 바꾼다
+  hideDialog();
+
+  // 부인을 눌러 말 걸기
+  const wife = [...$("sprites").children].find((el) => el.dataset.key === "char_wife");
+  setHint(H.hint);
+  await new Promise((resolve) => {
+    if (!wife) return resolve();
+    wife.classList.add("npc");
+    wife.addEventListener("click", (e) => { e.stopPropagation(); wife.classList.remove("npc"); resolve(); }, { once: true });
   });
+  setHint("");
+  const p1 = addSprite("portrait_samani", { cx: 130, bottom: 252 });
+  const p2 = addSprite("portrait_wife", { cx: 510, bottom: 252 });
+  const i = await sayLines(H.wife, H.wifeChoices);
+  const c = H.wifeChoices[i];
+  addGood(c.score);
+  await sayLines(c.reply);
+  p1.remove(); p2.remove();
+  hideDialog();
+
+  // 문을 눌러 장터로 나가기
+  const door = document.createElement("div");
+  door.className = "door npc";
+  Object.assign(door.style, {
+    left: HOUSE_DOOR.x + "px", top: HOUSE_DOOR.y + "px",
+    width: HOUSE_DOOR.w + "px", height: HOUSE_DOOR.h + "px",
+  });
+  const lab = document.createElement("div");
+  lab.className = "lab";
+  lab.textContent = H.doorLabel;
+  door.appendChild(lab);
+  $("sprites").appendChild(door);
+  setHint(H.doorHint);
+  await new Promise((resolve) => {
+    door.addEventListener("click", (e) => { e.stopPropagation(); resolve(); }, { once: true });
+  });
+  setHint("");
+  door.remove();
+  await sayLines(H.outro);
+}
+
+/* 2스테이지: 장삿길 (클릭 화면) */
+async function sceneMarket() {
+  await transition(() => { setBg("bg_market"); showHud(true); });
   await sayLines(SCRIPT.marketIntro);
   clearSprites();
 
@@ -346,19 +422,22 @@ async function sceneMarket() {
   let gaveMoney = false;   // 한 명이라도 도왔으면 돈이 없어 총을 외상으로 산다
   let clickedNpc = null;
   const els = {};
-  for (const id of Object.keys(MARKET_POS)) {
-    const key = MARKET_SPRITE[id];
-    const el = addSprite(key, { x: MARKET_POS[id].x, y: MARKET_POS[id].y });
-    el.classList.add("npc");
-    const lab = document.createElement("div");
-    lab.className = "lab";
-    lab.textContent = (id === "merchant" ? SCRIPT.merchant : SCRIPT.npcs[id]).label;
-    el.appendChild(lab);
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (clickedNpc === "wait") clickedNpc = id;   // 대화 중이 아닐 때만 받음
+  for (const id of Object.keys(MARKET_NPCS)) {
+    els[id] = MARKET_NPCS[id].map(([key, x, y], n) => {
+      const el = addSprite(key, { x, y });
+      el.classList.add("npc");
+      if (n === 0) {   // 이름표는 첫 그림 위에만
+        const lab = document.createElement("div");
+        lab.className = "lab";
+        lab.textContent = (id === "merchant" ? SCRIPT.merchant : SCRIPT.npcs[id]).label;
+        el.appendChild(lab);
+      }
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (clickedNpc === "wait") clickedNpc = id;   // 대화 중이 아닐 때만 받음
+      });
+      return el;
     });
-    els[id] = el;
   }
   setHint(SCRIPT.marketHint);
   hideDialog();
@@ -390,7 +469,7 @@ async function sceneMarket() {
         else await sayLines(n.passed);
       }
       visited.add(id);
-      els[id].classList.add("done");
+      els[id].forEach((el) => el.classList.add("done"));
     }
     hideDialog();
     setHint(SCRIPT.marketHint);
@@ -507,7 +586,7 @@ async function sceneEnding(code) {
   await waitClick();
   card.hidden = true;
 
-  // 엔딩 글 (엔딩 A는 배경 end_a.png 에 빈 밥상이 그려져 있음, 엔딩 B·C에는 인물 그림)
+  // 엔딩 글 (엔딩 B·C에는 인물 그림. 엔딩 A의 빈 밥상은 배경 end_a.png 에 그려져 있음)
   if (code === "B") addSprite("char_samani", { cx: 320, bottom: 240 });
   if (code === "C") {
     addSprite("char_samani", { cx: 250, bottom: 240 });
@@ -516,7 +595,7 @@ async function sceneEnding(code) {
   }
   await sayLines(E.lines);
 
-  // 대사가 끝나면 대화창을 숨기고, 클릭할 때까지 마지막 그림을 보여 준다
+  // 대화창을 치우고 마지막 그림을 보여 준다 (엔딩 A: 오사만이 집의 빈 밥상). 클릭하면 크레딧
   hideDialog();
   await waitClick();
 
@@ -528,7 +607,7 @@ async function sceneEnding(code) {
   const C = SCRIPT.credits;
   card.innerHTML =
     `<div class="t">${C.title}</div><div class="b">${C.text}</div>` +
-    `<div class="s">엔딩 ${code} · 선함 ${good} / 10</div>`;
+    `<div class="s">엔딩 ${code} · 선함 ${good}</div>`;
   await choose([{ text: C.again }], { center: true });
   location.href = location.pathname;   // 처음부터 다시
 }
@@ -549,7 +628,7 @@ async function main() {
 
   // 장면 순서: 이 배열 순서대로 플레이된다. 마지막 명부 장면이 엔딩을 정한다.
   const order = [
-    ["title", sceneTitle], ["quiz", sceneQuiz], ["market", sceneMarket],
+    ["title", sceneTitle], ["quiz", sceneQuiz], ["house", sceneHouse], ["market", sceneMarket],
     ["cutscene", sceneCutscene], ["chasa", sceneChasa],
   ];
   const from = start === "gameover" ? "chasa" : start;
