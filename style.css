@@ -173,3 +173,27 @@ html, body {
 .door { position: absolute; }
 .door:hover { outline: 2px dashed #ffd777; outline-offset: -2px; background: rgba(255, 215, 119, .12); }
 .door .lab { top: 4px; bottom: auto; margin: 0; }
+
+/* ===== 세 번 부름 미니게임 ===== */
+.mg-lane {
+  position: absolute; top: 0; width: 140px; height: 360px; cursor: pointer;
+  background: linear-gradient(to bottom, rgba(0,0,0,.25), rgba(0,0,0,.05));
+  border-left: 1px dashed rgba(255,255,255,.15); border-right: 1px dashed rgba(255,255,255,.15);
+}
+.mg-lane:hover { background: rgba(255, 215, 119, .08); }
+.mg-player { transition: left .08s steps(2); pointer-events: none; }
+.mg-word {
+  position: absolute; width: 22px; margin-left: -11px; text-align: center;
+  font: 16px/17px "Galmuri14", monospace; white-space: pre-wrap; pointer-events: none;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+.mg-word.red { color: #ff5a5a; }
+.mg-word.blue { color: #6fb6ff; }
+.mg-counter {
+  position: absolute; left: 8px; top: 28px;
+  font: 14px "Galmuri14", monospace; color: #ffe6a3; text-shadow: 2px 2px 0 #000; pointer-events: none;
+}
+.mg-bubble {
+  position: absolute; top: 248px; transform: translateX(-50%); pointer-events: none;
+  font: 16px "Galmuri14", monospace; text-shadow: 2px 2px 0 #000;
+}

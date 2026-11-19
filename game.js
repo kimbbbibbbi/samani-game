@@ -15,6 +15,9 @@ const CONFIG = {
   showScore: true,     // 화면 오른쪽 위에 선함 점수 보이기 (발표 시연용. 끄려면 false)
   goodForC: 8,         // 이 점수 이상이면 엔딩 C  (선함 최대 10: 질문 4 + 부인 1 + 아이들 1 + 노인들 1 + 대접 3)
   clearTreat: 2,       // 차사 대접에서 이만큼 맞혀야 통과
+  // 세 번 부름 미니게임
+  mgVolleyMs: 1500,    // 차사들이 "사만아!"를 쏘는 간격. 한 번 쏠 때마다 부른 횟수 +1, 모두 3번
+  mgFallMs: 600,       // 글자가 위에서 사만이까지 날아오는 시간 (작을수록 빠름)
 };
 
 /* ---------------------------- 그림 설정 ----------------------------
@@ -61,6 +64,9 @@ const SPRITE = {
   npc_merchant:         { w: 48,  h: 96,  label: "총 상인" },
   prop_table_food:      { w: 64,  h: 48,  label: "제사상" },
   prop_table_empty:     { w: 64,  h: 48,  label: "빈 밥상" },
+  face_chasa_myeong:    { w: 64,  h: 64,  label: "명차지" },
+  face_chasa_bok:       { w: 64,  h: 64,  label: "복차지" },
+  face_chasa_nokmyeong: { w: 64,  h: 64,  label: "녹명차지" },
   icon_horse:           { w: 32,  h: 32,  label: "말" },
   icon_shoes:           { w: 32,  h: 32,  label: "신" },
   icon_rice:            { w: 32,  h: 32,  label: "밥" },
@@ -182,6 +188,10 @@ document.addEventListener("keydown", (e) => {
   if (e.key === " " || e.key === "Enter") { e.preventDefault(); onAdvance(); }
   else if (e.key.toLowerCase() === "f") toggleFullscreen();
   else if (/^[1-9]$/.test(e.key) && pickByKey) pickByKey(Number(e.key) - 1);
+  else if (MG.active && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+    e.preventDefault();
+    mgMove(MG.lane + (e.key === "ArrowLeft" ? -1 : 1));
+  }
 });
 
 /* 대사 한 줄. wait=false 면 글자만 다 나오면 바로 끝남 (선택지 앞에서 씀) */
@@ -500,7 +510,12 @@ async function sceneChasa() {
     await transition(() => { setBg("bg_chasa"); showHud(true); showChasa(); });
     await sayLines(SCRIPT.chasaIntro);
 
-    await callThreeTimes();
+    const result = await callMinigame();          // "ok" / "early" / "late"
+    if (result !== "ok") {
+      await sceneGameOver(result === "early" ? SCRIPT.minigame.failEarly : SCRIPT.minigame.failLate);
+      continue;                                   // 저승사자 장면 처음부터 다시
+    }
+    showChasa();
     const rightCount = await treatChasa();
 
     if (rightCount >= CONFIG.clearTreat) {
@@ -512,24 +527,108 @@ async function sceneChasa() {
 }
 
 /* 세 번 부름: 1·2번째는 참고, 3번째에 대답해야 통과. 틀리면 처음부터 */
-async function callThreeTimes() {
-  while (true) {
-    let ok = true;
-    for (let n = 0; n < 3; n++) {
-      const [who, text] = SCRIPT.calls[n];
-      const picked = await ask(who, text, SCRIPT.callChoices.map((t) => ({ text: t })));
-      const answered = picked === 0;               // 0 = 대답한다, 1 = 참는다
-      const correct = n < 2 ? !answered : answered;
-      if (!correct) {
-        await sayLines(n < 2 ? SCRIPT.callWrongEarly : SCRIPT.callWrongLate);
-        ok = false;
-        break;
+/* ---------------- 세 번 부름 미니게임 ----------------
+   차사 셋이 CONFIG.mgVolleyMs 마다 각자 레인으로 "사만아!"를 쏜다 (빨강 1, 파랑 2).
+   파란 글자 = 묵언 "..." (맞아도 안전), 빨간 글자 = 대답 "네!".
+   글자가 한 번 내려올 때마다 카운트(차사가 부른 횟수) +1. 글자는 모두 3번 내려온다.
+   3번째 빨간 글자에 맞으면 성공. 1·2번째 빨간 글자에 맞으면 "early" 실패,
+   3번째 빨간 글자까지 피하면(대답을 안 하면) "late" 실패.  */
+const MG = { active: false, lane: 1, count: 0, words: [] };   // 테스트에서도 읽을 수 있게 밖에 둠
+const MG_LANE_X = [160, 320, 480];      // 레인 세 줄의 가로 중심
+const MG_FEET = 346;                     // 사만이 발 높이
+const MG_TOP = 96, MG_HIT = MG_FEET - SPRITE.char_samani.h;   // 글자가 출발하는 높이, 사만이에게 닿는 높이(머리)
+
+function mgMove(lane) {
+  MG.lane = Math.max(0, Math.min(2, lane));
+  if (MG.player) MG.player.style.left = (MG_LANE_X[MG.lane] - SPRITE.char_samani.w / 2) + "px";
+}
+
+function mgBubble(text, color) {          // 사만이 머리 위 말풍선
+  const b = document.createElement("div");
+  b.className = "mg-bubble";
+  b.textContent = text;
+  b.style.color = color;
+  b.style.left = MG_LANE_X[MG.lane] + "px";
+  b.style.top = (MG_HIT - 24) + "px";      // 머리 바로 위
+  $("sprites").appendChild(b);
+  setTimeout(() => b.remove(), 700);
+}
+
+async function callMinigame() {
+  const M = SCRIPT.minigame;
+  clearSprites();
+  await sayLines(M.intro);
+  hideDialog();
+
+  // 화면 꾸미기: 레인 3줄, 위에 차사 얼굴, 아래에 사만이
+  const box = $("sprites");
+  MG_LANE_X.forEach((x, i) => {
+    const lane = document.createElement("div");
+    lane.className = "mg-lane";
+    lane.style.left = (x - 70) + "px";
+    lane.addEventListener("click", (e) => { e.stopPropagation(); if (MG.active) mgMove(i); });   // 레인을 눌러 이동
+    box.appendChild(lane);
+    addSprite("face_" + CHASA[i].art.replace("char_", ""), { cx: x, bottom: 90 });
+  });
+  MG.player = addSprite("char_samani", { cx: MG_LANE_X[1], bottom: MG_FEET });
+  MG.player.classList.add("mg-player");
+  const counter = document.createElement("div");
+  counter.className = "mg-counter";
+  counter.textContent = M.counterLabel + " : 0";
+  box.appendChild(counter);
+  setHint(M.hint);
+
+  const sfx = new Audio(ASSET_DIR + "sfx_saman.mp3");   // 효과음 파일이 없으면 조용히 넘어감
+  Object.assign(MG, { active: true, lane: 1, count: 0, words: [] });
+  mgMove(1);
+
+  const start = performance.now();
+  let nextVolley = 800;   // 첫 발사는 0.8초 뒤
+  const result = await new Promise((resolve) => {
+    function frame(now) {
+      const t = now - start;
+
+      if (MG.count < 3 && t >= nextVolley) {       // 세 레인에 동시에 발사 (모두 3번)
+        nextVolley += CONFIG.mgVolleyMs;
+        MG.count++;                                // 부를 때마다 횟수 +1
+        counter.textContent = M.counterLabel + " : " + MG.count;
+        const red = Math.floor(Math.random() * 3);
+        for (let i = 0; i < 3; i++) {
+          const w = document.createElement("div");
+          w.className = "mg-word " + (i === red ? "red" : "blue");
+          w.textContent = M.call;
+          w.style.left = MG_LANE_X[i] + "px";
+          box.appendChild(w);
+          MG.words.push({ el: w, lane: i, red: i === red, born: t });
+        }
+        try { sfx.currentTime = 0; sfx.play().catch(() => {}); } catch (e) {}
       }
-      if (n < 2) await sayLines([SCRIPT.callIgnoreOk[n]]);
-      else await sayLines(SCRIPT.callAnswerOk);
+
+      for (const w of MG.words.slice()) {           // 글자 이동과 충돌
+        const p = (t - w.born) / CONFIG.mgFallMs;
+        w.el.style.top = (MG_TOP + (MG_HIT - MG_TOP) * Math.min(p, 1) - 70) + "px";
+        if (p < 1) continue;
+        w.el.remove();
+        MG.words.splice(MG.words.indexOf(w), 1);
+        if (w.lane !== MG.lane) continue;          // 다른 레인이면 빗나감
+        if (!w.red) { mgBubble(M.silent, "#9fd0ff"); continue; }
+        mgBubble(M.answer, "#ff8a8a");
+        return resolve(MG.count === 3 ? "ok" : "early");
+      }
+      if (MG.count === 3 && MG.words.length === 0) return resolve("late");   // 세 번째 부름까지 대답 안 함
+      requestAnimationFrame(frame);
     }
-    if (ok) return;
-  }
+    requestAnimationFrame(frame);
+  });
+
+  MG.active = false;
+  MG.words.forEach((w) => w.el.remove());
+  MG.words = [];
+  setHint("");
+  await sleep(700);
+  clearSprites();
+  if (result === "ok") await sayLines(M.success);
+  return result;
 }
 
 /* 대접: 차사 셋에게 하나씩. 맞힌 수를 돌려줌 */
@@ -553,14 +652,14 @@ async function treatChasa() {
 }
 
 /* 게임 오버: 끌려가는 짧은 화면 */
-async function sceneGameOver() {
+async function sceneGameOver(lines = SCRIPT.gameOver.lines) {
   await transition(() => { setBg("bg_gameover", true); showHud(false); });
   const card = $("card");
   card.hidden = false;
   card.className = "over";
   card.innerHTML = `<div class="t">${SCRIPT.gameOver.title}</div>`;
   await sleep(500);
-  await sayLines(SCRIPT.gameOver.lines);
+  await sayLines(lines);
   hideDialog();
   await choose([{ text: SCRIPT.gameOver.retry }], { center: true });
 }
@@ -611,7 +710,7 @@ async function sceneEnding(code) {
   card.innerHTML =
     `<div class="t">${C.title}</div><div class="b">${C.text}</div>` +
     `<div class="s">엔딩 ${code} · 선함 ${good}</div>`;
-  await choose([{ text: C.again }], { center: true });
+  await choose([{ text: C.again }], { center: true, noKey: true });
   location.href = location.pathname;   // 처음부터 다시
 }
 
