@@ -164,7 +164,7 @@ html, body {
 /* 머리 위 효과 글자 (♥, $, ;) */
 .fx {
   position: absolute; transform: translate(-50%, 0);
-  font: 22px "Galmuri14", monospace; color: #ff6b8a;
+  font: 28px "Galmuri14", monospace; color: #ff6b8a;   /* 28 = 갈무리14의 2배 (선명하게) */
   text-shadow: 2px 2px 0 #000; animation: fxpop 1.8s steps(12) forwards; pointer-events: none;
 }
 @keyframes fxpop { 0% { opacity: 0; margin-top: 8px; } 20% { opacity: 1; margin-top: 0; } 80% { opacity: 1; margin-top: -6px; } 100% { opacity: 0; margin-top: -8px; } }
