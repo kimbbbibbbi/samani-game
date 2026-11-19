@@ -50,7 +50,7 @@ const SPRITE = {
   char_kid:             { w: 48,  h: 48,  label: "아이" },
   // 상반신 일러스트 (96×96 원본을 2배). 파일이 없으면 화면에 안 나옴
   portrait_samani:      { w: 192, h: 192, label: "사만이", optional: true },
-  portrait_wife:        { w: 192, h: 192, label: "부인", optional: true },
+  portrait_wife:        { w: 104, h: 157, label: "부인", optional: true },   // 원본 1배 (assets/src/portrait_wife_1254.png 를 줄인 것)
   char_osamani:         { w: 48,  h: 96,  label: "오사만이" },
   char_skull:           { w: 96,  h: 96,  label: "백년해골" },
   char_chasa_myeong:    { w: 192, h: 192, label: "명차지 차사" },
@@ -394,8 +394,8 @@ async function sceneHouse() {
     wife.addEventListener("click", (e) => { e.stopPropagation(); wife.classList.remove("npc"); resolve(); }, { once: true });
   });
   setHint("");
-  const p1 = addSprite("portrait_samani", { cx: 130, bottom: 252 });
-  const p2 = addSprite("portrait_wife", { cx: 510, bottom: 252 });
+  const p1 = addSprite("portrait_samani", { cx: 510, bottom: 252 });
+  const p2 = addSprite("portrait_wife", { cx: 126, bottom: 248 });    // 대화창 왼쪽 위, 이름표 바로 위
   const i = await sayLines(H.wife, H.wifeChoices);
   const c = H.wifeChoices[i];
   addGood(c.score);
