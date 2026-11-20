@@ -15,8 +15,8 @@ const CONFIG = {
   showScore: true,     // 화면 오른쪽 위에 선함 점수 보이기 (발표 시연용. 끄려면 false)
   goodForC: 8,         // 이 점수 이상이면 엔딩 C  (선함 최대 10: 질문 4 + 부인 1 + 아이들 1 + 노인들 1 + 대접 3)
   // 세 번 부름 미니게임
-  mgVolleyMs: 1500,    // 차사들이 "사만아!"를 쏘는 간격. 한 번 쏠 때마다 부른 횟수 +1, 모두 3번
-  mgFallMs: 600,       // 글자가 위에서 사만이까지 날아오는 시간 (작을수록 빠름)
+  mgVolleyMs: 1800,    // 차사들이 "사만아!"를 쏘는 간격. 한 번 쏠 때마다 부른 횟수 +1, 모두 3번
+  mgFallMs: 800,       // 글자가 위에서 사만이까지 날아오는 시간 (작을수록 빠름)
 };
 
 /* ---------------------------- 그림 설정 ----------------------------
@@ -363,7 +363,7 @@ async function sceneTitle() {
     ui.appendChild(text);
     logo.onload = () => { ui.innerHTML = ""; ui.appendChild(logo); };   // title_logo.png 가 있으면 그걸로 대체
   });
-  await choose([{ text: SCRIPT.title.start }], { center: true, noKey: true });
+  await choose([{ text: SCRIPT.title.start }], { center: true });
 }
 
 /* 성격 질문 3개 */
@@ -582,7 +582,7 @@ async function callMinigame() {
   mgMove(1);
 
   const start = performance.now();
-  let nextVolley = 800;   // 첫 발사는 0.8초 뒤
+  let nextVolley = 800;   // 첫 발사는 1초 뒤
   const result = await new Promise((resolve) => {
     function frame(now) {
       const t = now - start;
@@ -707,7 +707,7 @@ async function sceneEnding(code) {
   card.innerHTML =
     `<div class="t">${C.title}</div><div class="b">${C.text}</div>` +
     `<div class="s">엔딩 ${code} · 선함 ${good}</div>`;
-  await choose([{ text: C.again }], { center: true, noKey: true });
+  await choose([{ text: C.again }], { center: true });
   location.href = location.pathname;   // 처음부터 다시
 }
 
