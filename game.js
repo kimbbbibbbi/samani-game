@@ -35,6 +35,7 @@ const BG_COLOR = {
   bg_chasa:  "#3d2a5c",   // 보라색 원형 광장
   bg_ledger: "#5a4a30",   // 펼친 책
   bg_house:  "#5a4630",   // 사만이 집 안
+  bg_house_rich: "#6a4a2a", // 부자가 된 기와집 (해골을 모신 뒤)
   bg_hell:   "#3a2a6a",   // 저승 궁전 (엔딩 B)
   bg_gameover: "#2a2040", // 저승 돌길 (게임 오버)
   end_a:     "#2a2420",   // 엔딩 A 그림 (선택) 빈 밥상
@@ -42,25 +43,28 @@ const BG_COLOR = {
 };
 
 // 캐릭터·아이콘 크기 (화면 안 px). 도트 그림은 원본의 정수배(1·2·3배)로만 쓰세요. 예) 16×32 NPC → 48×96 (3배)
+// 새 그림(아이들·노인들·총포상·사만이 아이 둘·깨끗한 해골)은 원본 그대로(1배)
 // 차사(96×96 원본)는 3배(288)로 키우면 화면 높이(360)를 넘고 셋이 겹쳐서 2배(192) 그대로 둠
 const SPRITE = {
-  char_samani:          { w: 48,  h: 96,  label: "사만이" },
-  char_wife:            { w: 48,  h: 96,  label: "아내" },
-  char_kid:             { w: 48,  h: 48,  label: "아이" },
+  char_samani:          { w: 48,  h: 96,  label: "사만이" },   // 16×32 원본을 3배
+  char_wife:            { w: 48,  h: 96,  label: "아내" },     // 3배
+  char_samani_child1:   { w: 32,  h: 48,  label: "사만이 딸" },   // 32×48 원본 그대로 (어른 절반 키)
+  char_samani_child2:   { w: 32,  h: 48,  label: "사만이 아들" },
   // 상반신 일러스트 (96×96 원본을 2배). 파일이 없으면 화면에 안 나옴
   portrait_samani:      { w: 192, h: 192, label: "사만이", optional: true },
   portrait_wife:        { w: 104, h: 157, label: "부인", optional: true },   // 원본 1배 (assets/src/portrait_wife_1254.png 를 줄인 것)
   char_osamani:         { w: 48,  h: 96,  label: "오사만이" },
-  char_skull:           { w: 96,  h: 96,  label: "백년해골" },
+  char_skull:           { w: 96,  h: 96,  label: "백년해골" },   // 덩굴 해골: 숲에서만
+  char_skull_clean:     { w: 64,  h: 64,  label: "백년해골" },   // 깨끗한 해골: 기와집·엔딩 C (32×32 원본을 2배)
   char_chasa_myeong:    { w: 192, h: 192, label: "명차지 차사" },
   char_chasa_bok:       { w: 192, h: 192, label: "복차지 차사" },
   char_chasa_nokmyeong: { w: 192, h: 192, label: "녹명차지 차사" },
-  npc_child1:           { w: 48,  h: 96,  label: "아이" },
-  npc_child2:           { w: 48,  h: 96,  label: "아이" },
-  npc_elder1:           { w: 48,  h: 96,  label: "노인" },
-  npc_elder2:           { w: 48,  h: 96,  label: "노인" },
+  npc_child1:           { w: 64,  h: 96,  label: "아이" },
+  npc_child2:           { w: 64,  h: 96,  label: "아이" },
+  npc_elder1:           { w: 64,  h: 96,  label: "노인" },
+  npc_elder2:           { w: 64,  h: 96,  label: "노인" },
   npc_osamani:          { w: 48,  h: 96,  label: "오사만이" },
-  npc_merchant:         { w: 48,  h: 96,  label: "총 상인" },
+  npc_merchant:         { w: 64,  h: 96,  label: "총포상" },
   prop_table_food:      { w: 64,  h: 48,  label: "제사상" },
   prop_table_empty:     { w: 64,  h: 48,  label: "빈 밥상" },
   face_chasa_myeong:    { w: 64,  h: 64,  label: "명차지" },
@@ -77,10 +81,10 @@ const HOUSE_DOOR = { x: 302, y: 52, w: 110, h: 136 };
 // 장삿길(클릭 화면)의 NPC: 대화 상대 하나에 그림 여러 개 가능 (아이 둘, 노인 둘이 함께 나옴)
 // [그림 이름, x, y]  (x, y = 왼쪽 위 모서리, 640×360 기준)
 const MARKET_NPCS = {
-  children: [["npc_child1", 112, 152], ["npc_child2", 150, 158]],   // 왼쪽 앞 귤 좌판 앞
-  elders:   [["npc_elder1", 215, 102], ["npc_elder2", 253, 108]],   // 왼쪽 뒤 좌판 앞
-  osamani:  [["npc_osamani", 427, 88]],                             // 오른쪽 뒤 좌판 앞
-  merchant: [["npc_merchant", 508, 152]],                           // 오른쪽 앞 좌판 앞
+  children: [["npc_child1", 109, 162], ["npc_child2", 137, 162]],   // 왼쪽 앞 귤 좌판 앞 (둘 간격 28)
+  elders:   [["npc_elder1", 211, 92], ["npc_elder2", 241, 92]],     // 왼쪽 뒤 좌판 앞 (둘 간격 30)
+  osamani:  [["npc_osamani", 431, 82]],                             // 오른쪽 뒤 좌판 앞
+  merchant: [["npc_merchant", 501, 140]],                           // 오른쪽 앞 좌판 앞
 };
 // 차사 3명 이름과 그림
 const CHASA = [
@@ -251,6 +255,8 @@ async function direct(cmd, a, b, c) {
     $("sprites").appendChild(fx);
     setTimeout(() => fx.remove(), 1800);   // 잠깐 보였다가 사라짐
     await sleep(900);
+  } else if (cmd === "@clear") {             // 화면의 인물·소품을 모두 치움
+    clearSprites();
   } else if (cmd === "@wait") {
     await sleep(Number(args[0]) || 400);
   }
@@ -492,7 +498,9 @@ async function sceneMarket() {
 async function sceneCutscene() {
   await transition(() => { setBg("bg_forest"); showHud(true); });
   let skullShown = false;
-  for (const [who, text] of SCRIPT.cutscene) {
+  for (const line of SCRIPT.cutscene) {
+    const [who, text] = line;
+    if (who && who[0] === "@") { await direct(who, line.slice(1)); continue; }   // 연출 명령
     if (who === NAMES.skull && !skullShown) {
       skullShown = true;
       addSprite("char_skull", { cx: 320, bottom: 240 });
@@ -690,7 +698,7 @@ async function sceneEnding(code) {
   if (code === "C") {
     addSprite("char_samani", { cx: 250, bottom: 240 });
     addSprite("char_osamani", { cx: 390, bottom: 240 });
-    addSprite("char_skull", { cx: 100, bottom: 240 });
+    addSprite("char_skull_clean", { cx: 100, bottom: 240 });
   }
   await sayLines(E.lines);
 
