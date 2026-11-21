@@ -1,0 +1,18 @@
+효과음 출처 (Kenney Interface Sounds, CC0, kenney.nl)
+
+sfx_type.mp3  ←  select_007.ogg
+sfx_select.mp3  ←  select_003.ogg
+sfx_next.mp3  ←  drop_001.ogg
+sfx_heart.mp3  ←  confirmation_003.ogg
+sfx_coin.mp3  ←  glass_001.ogg
+sfx_transition.mp3  ←  maximize_004.ogg
+sfx_skull.mp3  ←  minimize_006.ogg
+sfx_good_up.mp3  ←  confirmation_001.ogg
+sfx_good_down.mp3  ←  minimize_008.ogg
+sfx_silent.mp3  ←  bong_001.ogg
+sfx_correct.mp3  ←  confirmation_004.ogg
+sfx_wrong.mp3  ←  error_006.ogg
+sfx_gameover.mp3  ←  error_007.ogg
+
+sfx_saman.mp3  ←  TTSMaker로 만든 음성 (조원 제작)
+문·명부 효과음은 쓰지 않기로 함

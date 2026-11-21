@@ -32,7 +32,7 @@
 - 세 번 부름 = 미니게임 (`callMinigame()`): 레인 3줄, 차사 셋이 1.5초마다 "사만아!" 발사(빨강 1·파랑 2, 빨간 레인 무작위).
   글자가 한 번 내려올 때마다 카운트(차사가 부른 횟수) +1, 글자는 모두 3번 내려온다. 파랑에 맞으면 "..."(안전).
   3번째 빨강에 맞으면 성공 → 대접. 1·2번째 빨강에 맞거나 3번째 빨강까지 피하면 게임 오버 → 저승사자 장면부터 재도전.
-  조작: ← → 키 또는 레인 클릭. 효과음 `assets/sfx_saman.mp3`(조원이 줄 예정, 없으면 무음). 속도는 `CONFIG.mg...`
+  조작: ← → 키 또는 레인 클릭. 효과음 `assets/audio/sfx_saman.mp3`. 속도는 `CONFIG.mg...`
 - 대접 정답: 명차지=백마, 복차지=당혜(신발), 녹명차지=더운 밥. 셋 다 맞혀야 통과. 하나라도 틀리면 그 차사가 화내는 대사 후 바로 게임 오버 → 저승사자 장면(미니게임)부터 재도전(대접 점수는 되돌림).
 - 장터에서 한 명이라도 도우면 돈이 없어 총을 외상으로 받는다.
 - 명부: 오사만이 이름을 적으면 엔딩 A, 안 적고 선함 8 미만 B, 8 이상 C (`CONFIG.goodForC`).
@@ -41,8 +41,16 @@
 ## 테스트
 - 실행: 이 폴더에서 `python3 -m http.server 8000` → http://localhost:8000
 - 바로 가기: `?scene=quiz|house|market|cutscene|chasa|ledger|gameover|ending_a|ending_b|ending_c` + `&good=8`(선함 지정) + `&fast=1`(글자 즉시)
-- 조작: 클릭/Space/Enter 다음, 숫자키 1~3 선택, F 전체 화면
+- 조작: 클릭/Space/Enter 다음, 숫자키 1~3 선택, F 전체 화면, M 소리 끄기
 - 변경 후에는 엔딩 A·B·C와 게임 오버 경로를 각각 끝까지 확인할 것. 대사가 대화창(3줄)을 넘치지 않는지도.
+
+## 소리
+- 효과음: `assets/audio/sfx_이름.mp3` (Kenney Interface Sounds CC0 + "사만아!"는 TTSMaker 음성). 출처는 `assets/audio/CREDITS_audio.txt`.
+  type(글자), select(선택지), next(대사 넘김), heart(♥), coin($·장터에서 돈 줌), transition(장면 전환), skull(숲에서 해골 첫 등장),
+  good_up/good_down(선함 ±), silent(미니게임 파란 글자), correct(대접 정답·미니게임 성공), wrong(대접 오답·미니게임 일찍 대답),
+  gameover, saman(미니게임 발사).  재생은 `game.js`의 `sfx("이름")`. 크기는 `CONFIG.sfxVolume`, `typeVolume`, `typeEveryMs`.
+- M 키 또는 화면 오른쪽 아래 버튼으로 소리 끄기/켜기.
+- 배경음악(bgm_village, bgm_eerie, bgm_tense, bgm_ending, 국악풍)은 아직 없음. 구하면 재생 코드 추가 예정. 문·명부 효과음은 쓰지 않기로 함.
 
 ## 그림 슬롯 (파일만 넣으면 나타남)
 - `portrait_samani.png`, `portrait_wife.png`: 96×96 상반신(배경 투명). 1스테이지 부인과 대화할 때 좌우에 2배로 뜬다. 없으면 안 보임.

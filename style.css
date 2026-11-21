@@ -138,6 +138,11 @@ html, body {
   background: #222; color: #ddd; border: 1px solid #555; font: 11px "Galmuri11", monospace; padding: 3px 6px; cursor: pointer;
 }
 #fsBtn:hover { opacity: 1; }
+#muteBtn {
+  position: fixed; right: 110px; bottom: 6px; z-index: 5; opacity: .35;
+  background: #222; color: #ddd; border: 1px solid #555; font: 11px "Galmuri11", monospace; padding: 3px 6px; cursor: pointer;
+}
+#muteBtn:hover { opacity: 1; }
 
 /* ===== 그림 틀 (assets/ui_dialog.png 가 있을 때만) =====
    원본 224×44 틀의 모서리 6px를 2배(12px)로 키우고 가운데는 늘려서 채운다 */

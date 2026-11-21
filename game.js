@@ -17,6 +17,10 @@ const CONFIG = {
   // 세 번 부름 미니게임
   mgVolleyMs: 1800,    // 차사들이 "사만아!"를 쏘는 간격. 한 번 쏠 때마다 부른 횟수 +1, 모두 3번
   mgFallMs: 800,       // 글자가 위에서 사만이까지 날아오는 시간 (작을수록 빠름)
+  // 소리
+  sfxVolume: 0.6,      // 효과음 전체 크기 (0~1)
+  typeVolume: 0.25,    // 글자 타이핑 소리 크기 (0~1). 시끄러우면 줄이기
+  typeEveryMs: 70,     // 타이핑 소리 최소 간격(ms). 클수록 덜 자주 남
 };
 
 /* ---------------------------- 그림 설정 ----------------------------
@@ -152,10 +156,34 @@ function addSprite(key, opts = {}) {
 }
 function clearSprites() { $("sprites").innerHTML = ""; }
 
-function addGood(n) {
+/* ---------------------------- 효과음 ----------------------------
+   assets/audio/이름.mp3 를 재생. 파일이 없으면 조용히 넘어감.
+   M 키나 화면 오른쪽 아래 버튼으로 소리 끄기/켜기                  */
+const AUDIO_DIR = ASSET_DIR + "audio/";
+const SFX_NAMES = ["type", "select", "next", "heart", "coin", "transition", "skull",
+  "good_up", "good_down", "silent", "correct", "wrong", "gameover", "saman"];
+const SFX = {};
+SFX_NAMES.forEach((n) => { const a = new Audio(AUDIO_DIR + "sfx_" + n + ".mp3"); a.preload = "auto"; SFX[n] = a; });
+let muted = false;
+let lastType = 0;
+function sfx(name, volume = 1) {
+  if (muted || !SFX[name]) return;
+  try {
+    const a = SFX[name].cloneNode();          // 겹쳐서 나도 되게 복사해서 재생
+    a.volume = Math.min(1, CONFIG.sfxVolume * volume);
+    a.play().catch(() => {});
+  } catch (e) {}
+}
+function toggleMute() {
+  muted = !muted;
+  $("muteBtn").textContent = muted ? "소리 켜기 (M)" : "소리 끄기 (M)";
+}
+
+function addGood(n, quiet = false) {
   if (!n) return;
   good += n;            // 마이너스도 허용
   updateHud();
+  if (!quiet) sfx(n > 0 ? "good_up" : "good_down");
   toast("선함 " + (n > 0 ? "+" : "") + n, n < 0);
 }
 function updateHud() { $("goodNum").textContent = good; }
@@ -190,6 +218,7 @@ stage.addEventListener("click", onAdvance);
 document.addEventListener("keydown", (e) => {
   if (e.key === " " || e.key === "Enter") { e.preventDefault(); onAdvance(); }
   else if (e.key.toLowerCase() === "f") toggleFullscreen();
+  else if (e.key.toLowerCase() === "m") toggleMute();
   else if (/^[1-9]$/.test(e.key) && pickByKey) pickByKey(Number(e.key) - 1);
   else if (MG.active && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
     e.preventDefault();
@@ -222,13 +251,18 @@ function say(who, text, wait = true) {
       textEl.textContent = text;
       if (!wait) return resolve();
       nextEl.style.visibility = "visible";
-      advance = () => { advance = null; nextEl.style.visibility = "hidden"; resolve(); };
+      advance = () => { advance = null; nextEl.style.visibility = "hidden"; sfx("next"); resolve(); };
     };
     finishLine = done;
     if (CONFIG.typeMs <= 0) return done();
     timer = setInterval(() => {
       i++;
       textEl.textContent = text.slice(0, i);
+      const now = performance.now();
+      if (text[i - 1] && text[i - 1].trim() && now - lastType >= CONFIG.typeEveryMs) {   // 빈칸·줄바꿈은 소리 없음
+        lastType = now;
+        sfx("type", CONFIG.typeVolume / CONFIG.sfxVolume);
+      }
       if (i >= text.length) done();
     }, CONFIG.typeMs);
   });
@@ -239,15 +273,17 @@ async function direct(cmd, a, b, c) {
   const args = Array.isArray(a) ? a : [a];
   if (cmd === "@bg") {                       // 배경을 부드럽게 바꿈
     const f = $("fade");
-    f.classList.add("on"); await sleep(320);
+    f.classList.add("on"); sfx("transition"); await sleep(320);
     setBg(args[0]);
-    f.classList.remove("on"); await sleep(320);
+    f.classList.remove("on");   // 밝아지는 동안 기다리지 않음: 바로 뒤의 @clear·@show 가 아직 검은 화면일 때 실행되게
   } else if (cmd === "@show") {              // 인물·소품을 화면에 올림 (그림이 없으면 아무것도 안 보임)
     addSprite(args[0], { cx: Number(args[1] ?? 320), bottom: Number(args[2] ?? 240) });
   } else if (cmd === "@fx") {                // 머리 위 효과 글자 (♥, $, ; 등)
     const fx = document.createElement("div");
     fx.className = "fx";
     fx.textContent = args[0];
+    if (args[0] === "♥") sfx("heart");
+    if (args[0] === "$") sfx("coin");
     if (args[0] === "$") fx.style.color = "#ffd34d";      // 돈은 금색
     if (args[0].includes(";")) fx.style.color = "#9fd0ff"; // 곤란함은 하늘색
     fx.style.left = (args[1] ?? 320) + "px";
@@ -271,6 +307,7 @@ function choose(options, opts = {}) {
     box.innerHTML = "";
     box.classList.toggle("center", !!opts.center);
     const pick = (i) => {
+      sfx("select");
       pickByKey = null;
       box.innerHTML = "";
       resolve(i);
@@ -322,6 +359,7 @@ function hideDialog() { $("dialog").hidden = true; $("choices").innerHTML = ""; 
 async function transition(setup) {
   const f = $("fade");
   f.classList.add("on");
+  sfx("transition");
   await sleep(320);
   hideDialog();
   clearSprites();
@@ -483,7 +521,7 @@ async function sceneMarket() {
       const n = SCRIPT.npcs[id];
       const i = await sayLines(n.lines, n.choices);
       if (n.choices) {
-        if (n.choices[i].help) { addGood(1); gaveMoney = true; await sayLines(n.helped); }
+        if (n.choices[i].help) { sfx("coin"); addGood(1); gaveMoney = true; await sayLines(n.helped); }
         else await sayLines(n.passed);
       }
       visited.add(id);
@@ -504,6 +542,7 @@ async function sceneCutscene() {
     if (who === NAMES.skull && !skullShown) {
       skullShown = true;
       addSprite("char_skull", { cx: 320, bottom: 240 });
+      sfx("skull");
     }
     await say(who, text);
   }
@@ -585,7 +624,6 @@ async function callMinigame() {
   box.appendChild(counter);
   setHint(M.hint);
 
-  const sfx = new Audio(ASSET_DIR + "sfx_saman.mp3");   // 효과음 파일이 없으면 조용히 넘어감
   Object.assign(MG, { active: true, lane: 1, count: 0, words: [] });
   mgMove(1);
 
@@ -608,7 +646,7 @@ async function callMinigame() {
           box.appendChild(w);
           MG.words.push({ el: w, lane: i, red: i === red, born: t });
         }
-        try { sfx.currentTime = 0; sfx.play().catch(() => {}); } catch (e) {}
+        sfx("saman");
       }
 
       for (const w of MG.words.slice()) {           // 글자 이동과 충돌
@@ -618,8 +656,9 @@ async function callMinigame() {
         w.el.remove();
         MG.words.splice(MG.words.indexOf(w), 1);
         if (w.lane !== MG.lane) continue;          // 다른 레인이면 빗나감
-        if (!w.red) { mgBubble(M.silent, "#9fd0ff"); continue; }
+        if (!w.red) { mgBubble(M.silent, "#9fd0ff"); sfx("silent"); continue; }
         mgBubble(M.answer, "#ff8a8a");
+        sfx(MG.count === 3 ? "correct" : "wrong");
         return resolve(MG.count === 3 ? "ok" : "early");
       }
       if (MG.count === 3 && MG.words.length === 0) return resolve("late");   // 세 번째 부름까지 대답 안 함
@@ -647,10 +686,12 @@ async function treatChasa() {
     showChasa(i);
     const picked = await sayLines(t.lines, options);
     if (keys[picked] !== t.answer) {
+      sfx("wrong");
       await sayLines(t.wrong);     // 틀린 차사가 화내고 → 게임 오버
       return false;
     }
-    addGood(1);
+    sfx("correct");
+    addGood(1, true);            // 정답 소리만 나게 (선함 소리는 생략)
     await sayLines(t.right);
   }
   return true;
@@ -663,6 +704,7 @@ async function sceneGameOver(lines = SCRIPT.gameOver.lines) {
   card.hidden = false;
   card.className = "over";
   card.innerHTML = `<div class="t">${SCRIPT.gameOver.title}</div>`;
+  sfx("gameover");
   await sleep(500);
   await sayLines(lines);
   hideDialog();
@@ -766,6 +808,7 @@ function toggleFullscreen() {
   else document.exitFullscreen?.();
 }
 $("fsBtn").addEventListener("click", toggleFullscreen);
+$("muteBtn").addEventListener("click", toggleMute);
 
 // 폰트가 준비된 뒤 시작 (글자 깨짐 방지)
 Promise.all([
