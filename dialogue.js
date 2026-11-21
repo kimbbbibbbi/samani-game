@@ -151,14 +151,14 @@ const SCRIPT = {
   npcs: {
     children: {
       label: "아이들",
-      lines: [[NAMES.child, "아침을 굶었어요! 부디 값비싼 음식을 먹을 수 있게\n오십 냥만 기부해 주지 않겠어요?"]], // ★
+      lines: [[NAMES.child, "며칠을 굶었어요! 부디 밥을 먹을 수 있게\n오십 냥만 기부해 주지 않겠어요?"]], // ★
       choices: [
         { text: "돈을 건넨다", help: true },
         { text: "거절한다", help: false },
       ],
       helped: [
-        [NAMES.samani, "우리 집안의 대들보 같은 종잣돈이지만 자, 받거라.\n네가 비싼 음식 먹는 게 더 중요하단다."], // ★
-        [NAMES.child, "기부 고맙다! 하하하!"],                                                     // ★
+        [NAMES.samani, "우리 집안의 대들보 같은 종잣돈이지만 자, 받거라.\n네가 배불리 먹는 게 더 중요하단다."], // ★
+        [NAMES.child, "감사합니다. 덕분에 살겠어요!"],                                                     // ★
       ],
       passed: [
         [NAMES.samani, "힘으로 빼앗아 봐라."],                                                    // ★
@@ -167,14 +167,14 @@ const SCRIPT = {
     },
     elders: {
       label: "노인들",
-      lines: [[NAMES.elder, "술 사 주고 밥 사 주고 옷 사 주고 신 좀 사게\n오십 냥만 기부하지 않겠는가?"]],         // ★
+      lines: [[NAMES.elder, "너무 춥고 배고프다네..\n좀 도와줄 수 없겠는가?"]],         // ★
       choices: [
         { text: "돈을 드린다", help: true },
         { text: "거절한다", help: false },
       ],
       helped: [
         [NAMES.samani, "사업을 일으킬 종잣돈이지만 당연히 드려야지요.\n부디 힘내세요, 어르신!"],          // ★
-        [NAMES.elder, "자네도 가난한 집에서 열심히 살아가게나!\n멀리서 응원하겠네!"],                    // ★
+        [NAMES.elder, "자네도 열심히 살아가게나!\n멀리서 응원하겠네!"],                    // ★
       ],
       passed: [
         [NAMES.samani, "그건 곤란합니다."],                                                       // ★
@@ -395,6 +395,7 @@ const SCRIPT = {
       "대본 : 최유식\n" +
       "개발 : 서광일\n" +
       "디자인 : 김민경, 송지은\n\n" +
+      "오디오 : 서광일\n" +
       "폰트 : 갈무리(Galmuri)",
     again: " 처음으로 ",
   },

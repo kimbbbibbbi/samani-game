@@ -106,7 +106,7 @@ html, body {
   align-items: center; justify-content: center; text-align: center;
   background: rgba(0,0,0,.55); padding: 24px 40px; white-space: pre-wrap; line-height: 22px;
 }
-#card.solid { background: #000; justify-content: flex-start; padding-top: 20px; }   /* 크레딧: 위로 붙여서 맨 아래 "엔딩 · 선함" 줄이 버튼에 가리지 않게 */
+#card.solid { background: #000; justify-content: flex-start; padding-top: 4px; }   /* 크레딧: 위로 붙여서 맨 아래 "엔딩 · 선함" 줄이 버튼에 가리지 않게 */
 #card .t { font: 26px "Galmuri14", monospace; color: #ffe6a3; margin-bottom: 14px; line-height: 34px; }
 #card.over .t { color: #e04848; font-size: 40px; }
 #card .b { font: 14px "Galmuri14", monospace; color: #f4ead5; }
