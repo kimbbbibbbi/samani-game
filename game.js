@@ -6,14 +6,16 @@
    각 장면 함수는 위에서 아래로 읽으면 그대로 게임 진행입니다.
      await say(...)      대사 한 줄을 보여 주고 클릭을 기다림
      await ask(...)      대사 + 선택지. 고른 번호(0부터)를 돌려줌
-     addGood(1)          선함 +1
+     addGood(1)          선함 +1  (addGood(-1) = 선함 -1)
    ===================================================================== */
 
 /* ---------------------------- 1) 설정 ---------------------------- */
 const CONFIG = {
   typeMs: 30,          // 글자 한 개가 나오는 시간(ms). 작을수록 빠름
   showScore: true,     // 화면 오른쪽 위에 선함 점수 보이기 (발표 시연용. 끄려면 false)
-  goodForC: 8,         // 이 점수 이상이면 엔딩 C  (선함 최대 10: 질문 4 + 부인 1 + 아이들 1 + 노인들 1 + 대접 3)
+  goodForC: 6,         // 명부에서 이름을 안 적었을 때 이 점수 이상이면 엔딩 C, 아니면 B
+                       // 선함 최고 7 (질문 4 + 부인 1 + 아이들 1 + 노인들 1), 최저 -6 (질문 -3, 부인·아이들·노인들 각 -1)
+                       // 대접을 통과했을 때 선함 0 이하면 명부 없이 엔딩 D
   // 세 번 부름 미니게임
   mgVolleyMs: 1800,    // 차사들이 "사만아!"를 쏘는 간격. 한 번 쏠 때마다 부른 횟수 +1, 모두 3번
   mgFallMs: 800,       // 글자가 위에서 사만이까지 날아오는 시간 (작을수록 빠름)
@@ -522,7 +524,7 @@ async function sceneMarket() {
       const i = await sayLines(n.lines, n.choices);
       if (n.choices) {
         if (n.choices[i].help) { sfx("coin"); addGood(1); gaveMoney = true; await sayLines(n.helped); }
-        else await sayLines(n.passed);
+        else { addGood(-1); await sayLines(n.passed); }   // 거절하면 선함 -1
       }
       visited.add(id);
       els[id].forEach((el) => el.classList.add("done"));
@@ -548,9 +550,10 @@ async function sceneCutscene() {
   }
 }
 
-/* 저승사자 장면: 세 번 부름 → 대접 → (통과 / 게임 오버) */
+/* 저승사자 장면: 세 번 부름 → 대접 → (통과 / 게임 오버)
+   통과하면 선함 0 이하 → "D" (엔딩 D, 명부 없음), 1 이상 → 명부 장면으로 */
 async function sceneChasa() {
-  const goodAtStart = good;   // 게임 오버 뒤 다시 할 때 대접 점수를 되돌리려고 기억
+  const goodAtStart = good;   // 게임 오버 뒤 다시 할 때 점수를 장면 시작 때로 되돌리려고 기억
   while (true) {
     good = goodAtStart; updateHud();
     await transition(() => { setBg("bg_chasa"); showHud(true); showChasa(); });
@@ -566,6 +569,11 @@ async function sceneChasa() {
 
     if (passed) {
       await sayLines(SCRIPT.treatPass);
+      if (good <= 0) {                           // 인정 없는 사만이 → 엔딩 D
+        await sayLines(SCRIPT.treatFail);
+        return "D";
+      }
+      await sayLines(SCRIPT.treatToLedger);
       return;
     }
     await sceneGameOver();   // 끝나면 반복문 처음으로 돌아가 저승사자 장면부터 다시
@@ -690,8 +698,7 @@ async function treatChasa() {
       await sayLines(t.wrong);     // 틀린 차사가 화내고 → 게임 오버
       return false;
     }
-    sfx("correct");
-    addGood(1, true);            // 정답 소리만 나게 (선함 소리는 생략)
+    sfx("correct");              // 정답이어도 선함 점수는 없음
     await sayLines(t.right);
   }
   return true;
@@ -721,10 +728,11 @@ async function sceneLedger() {
   return good >= CONFIG.goodForC ? "C" : "B";
 }
 
-/* 엔딩 A / B / C + 크레딧 */
+/* 엔딩 A / B / C / D + 크레딧 */
+const ENDING_BG = { A: "end_a", B: "bg_hell", C: "end_c", D: "bg_gameover" };
 async function sceneEnding(code) {
   const E = SCRIPT.endings[code];
-  const bgKey = code === "A" ? "end_a" : code === "B" ? "bg_hell" : "end_c";
+  const bgKey = ENDING_BG[code];
   await transition(() => { setBg(bgKey, true); showHud(false); });
 
   // 엔딩 제목 카드
@@ -763,7 +771,7 @@ async function sceneEnding(code) {
 
 /* ---------------------------- 6) 전체 흐름 ---------------------------- */
 /* 테스트용 주소 옵션:
-     ?scene=quiz | market | cutscene | chasa | ledger | ending_a | ending_b | ending_c | gameover
+     ?scene=quiz | market | cutscene | chasa | ledger | ending_a | ending_b | ending_c | ending_d | gameover
      ?good=8      선함 점수를 미리 정해 둠
      ?fast=1      글자를 한 번에 표시 (빠른 테스트)                           */
 async function main() {
@@ -776,6 +784,7 @@ async function main() {
   if (start === "gameover") { await sceneGameOver(); }
 
   // 장면 순서: 이 배열 순서대로 플레이된다. 마지막 명부 장면이 엔딩을 정한다.
+  // (저승사자 장면이 "D" 를 돌려주면 명부 없이 바로 엔딩 D)
   const order = [
     ["title", sceneTitle], ["quiz", sceneQuiz], ["house", sceneHouse], ["market", sceneMarket],
     ["cutscene", sceneCutscene], ["chasa", sceneChasa],
@@ -784,9 +793,10 @@ async function main() {
   // from 이 "ledger" 면 해당 이름이 없어 -1 → 전부 건너뛰고 바로 명부 장면
   const found = order.findIndex(([name]) => name === from);
   const startIdx = from === "ledger" ? order.length : Math.max(0, found);
-  for (let i = startIdx; i < order.length; i++) await order[i][1]();
+  let last;
+  for (let i = startIdx; i < order.length; i++) last = await order[i][1]();
 
-  const code = await sceneLedger();
+  const code = last === "D" ? "D" : await sceneLedger();
   await sceneEnding(code);
 }
 
