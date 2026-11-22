@@ -52,6 +52,9 @@
   type(글자), select(선택지), next(대사 넘김), heart(♥), coin($·장터에서 돈 줌), transition(장면 전환), skull(숲에서 해골 첫 등장),
   good_up/good_down(선함 ±), silent(미니게임 파란 글자), correct(대접 정답·미니게임 성공), wrong(대접 오답·미니게임 일찍 대답),
   gameover, saman(미니게임 발사).  재생은 `game.js`의 `sfx("이름")`. 크기는 `CONFIG.sfxVolume`, `typeVolume`, `typeEveryMs`.
+  효과음과 배경 음악은 Web Audio 로 재생(효과음은 미리 풀어 두고, 소리마다 `<audio>`를 새로 만들지 않음 — 아이패드 사파리 끊김 방지).
+  배경 음악은 mp3 파일만 미리 받아 두고, 곡을 푸는(decode) 건 그 곡이 필요할 때만, 다 쓴 곡은 메모리에서 버림.
+  `index.html`을 파일로 바로 열면(file://) 브라우저가 fetch를 막아서 효과음·음악 모두 `<audio>`로 대신 재생.
 - M 키 또는 화면 오른쪽 아래 버튼으로 소리 끄기/켜기.
 - 문·명부 효과음은 쓰지 않기로 함.
 - 배경 음악: `assets/audio/bgm_이름.mp3`를 장면마다 끝없이 반복 재생(Web Audio, 이음새 없이). 재생은 `game.js`의 `bgm("이름")`, `bgm(null)` = 끔.

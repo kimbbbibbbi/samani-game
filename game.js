@@ -164,19 +164,35 @@ function clearSprites() { $("sprites").innerHTML = ""; }
 
 /* ---------------------------- 효과음 ----------------------------
    assets/audio/이름.mp3 를 재생. 파일이 없으면 조용히 넘어감.
-   M 키나 화면 오른쪽 아래 버튼으로 소리 끄기/켜기                  */
+   M 키나 화면 오른쪽 아래 버튼으로 소리 끄기/켜기
+   보통(사이트·서버)은 배경 음악과 같은 Web Audio 로 튼다: 미리 한 번 읽어 두고
+   소리마다 <audio> 를 새로 만들지 않아 가볍다 (아이패드 사파리 끊김 방지).
+   파일로 바로 열었을 때(file://)만 <audio> 로 튼다.                  */
 const AUDIO_DIR = ASSET_DIR + "audio/";
+const FILE_MODE = location.protocol === "file:";
 const SFX_NAMES = ["type", "select", "next", "heart", "coin", "transition", "skull",
   "good_up", "good_down", "silent", "correct", "wrong", "gameover", "saman"];
-const SFX = {};
-SFX_NAMES.forEach((n) => { const a = new Audio(AUDIO_DIR + "sfx_" + n + ".mp3"); a.preload = "auto"; SFX[n] = a; });
+const SFX = {};       // 파일로 열었을 때 쓰는 <audio>
+const SFX_BUF = {};   // Web Audio 로 미리 읽어 둔 효과음 (bgmSetup 에서 채움)
+if (FILE_MODE) SFX_NAMES.forEach((n) => { const a = new Audio(AUDIO_DIR + "sfx_" + n + ".mp3"); a.preload = "auto"; SFX[n] = a; });
 let muted = false;
 let lastType = 0;
 function sfx(name, volume = 1) {
-  if (muted || !SFX[name]) return;
+  if (muted) return;
+  const v = Math.min(1, CONFIG.sfxVolume * volume);
+  if (SFX_BUF[name] && BGM.ctx) {
+    const src = BGM.ctx.createBufferSource();
+    src.buffer = SFX_BUF[name];
+    const g = BGM.ctx.createGain();
+    g.gain.value = v;
+    src.connect(g).connect(BGM.ctx.destination);
+    src.start();
+    return;
+  }
+  if (!SFX[name]) return;
   try {
     const a = SFX[name].cloneNode();          // 겹쳐서 나도 되게 복사해서 재생
-    a.volume = Math.min(1, CONFIG.sfxVolume * volume);
+    a.volume = v;
     a.play().catch(() => {});
   } catch (e) {}
 }
@@ -193,11 +209,13 @@ function toggleMute() {
      bgm("title")  → 그 곡으로 바꿈 (이미 그 곡이면 그대로 둠)
      bgm(null)     → 음악 끔
      bgmDuck(true) → 잠깐 작게 (미니게임)
+   메모리를 아끼려고 처음엔 mp3 파일만 받아 두고, 곡을 풀어서(decode) 메모리에 올리는 건
+   그 곡이 필요할 때만 한다. 다 쓴 곡은 다시 버린다 (6곡을 다 풀면 140MB 가 넘음).
    index.html 을 파일로 바로 열면(file://) 브라우저가 fetch 를 막아서 Web Audio 를 못 씀.
    그때는 <audio> 로 대신 튼다 (반복되는 순간 아주 짧게 끊길 수 있음).              */
 const BGM_NAMES = ["title", "village", "eerie", "tense", "ending_happy", "ending_sad"];
-const BGM = { ctx: null, master: null, buffers: {}, now: null, want: null, ducked: false,
-  fileMode: location.protocol === "file:", els: {} };
+const BGM = { ctx: null, master: null, raw: {}, loading: {}, buffers: {}, now: null, want: null, ducked: false,
+  fileMode: FILE_MODE, els: {} };
 (function bgmSetup() {
   if (BGM.fileMode) {                                     // 파일로 열었을 때: <audio> 로 재생
     BGM_NAMES.forEach((n) => {
@@ -216,11 +234,12 @@ const BGM = { ctx: null, master: null, buffers: {}, now: null, want: null, ducke
   BGM.master = BGM.ctx.createGain();
   BGM.master.connect(BGM.ctx.destination);
   BGM.master.gain.value = CONFIG.bgmVolume;
-  BGM_NAMES.forEach((n) => {
-    fetch(AUDIO_DIR + "bgm_" + n + ".mp3")
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
-      .then((ab) => new Promise((ok, no) => BGM.ctx.decodeAudioData(ab, ok, no)))
-      .then((buf) => { BGM.buffers[n] = buf; if (BGM.want === n && !BGM.now) bgm(n); })   // 늦게 읽혀도 재생
+  const getFile = (url) => fetch(url).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject())).catch(() => null);
+  BGM_NAMES.forEach((n) => { BGM.raw[n] = getFile(AUDIO_DIR + "bgm_" + n + ".mp3"); });   // 파일만 받아 둠
+  SFX_NAMES.forEach((n) => {                              // 효과음은 짧아서 미리 다 풀어 둠
+    getFile(AUDIO_DIR + "sfx_" + n + ".mp3")
+      .then((ab) => ab && new Promise((ok, no) => BGM.ctx.decodeAudioData(ab, ok, no)))
+      .then((buf) => { if (buf) SFX_BUF[n] = buf; })
       .catch(() => {});
   });
   const unlock = () => { if (BGM.ctx.state === "suspended") BGM.ctx.resume(); };
@@ -236,6 +255,22 @@ function bgmVolumeNow() {
 }
 function bgmDuck(on) { BGM.ducked = on; bgmVolumeNow(); }
 
+/* 곡을 풀어서(decode) 메모리에 올림. 이미 올라가 있으면 그대로 */
+function bgmLoad(name) {
+  if (BGM.buffers[name]) return Promise.resolve(BGM.buffers[name]);
+  if (!BGM.loading[name]) {
+    BGM.loading[name] = BGM.raw[name]
+      .then((ab) => ab && new Promise((ok, no) => BGM.ctx.decodeAudioData(ab.slice(0), ok, no)))
+      .then((buf) => { if (buf) BGM.buffers[name] = buf; return buf; })
+      .catch(() => null)
+      .finally(() => { delete BGM.loading[name]; });
+  }
+  return BGM.loading[name];
+}
+function bgmForget(name) {                                // 다 쓴 곡은 메모리에서 버림
+  if (BGM.want !== name && !(BGM.now && BGM.now.name === name)) delete BGM.buffers[name];
+}
+
 function bgm(name) {
   BGM.want = name;
   if (BGM.fileMode) return bgmFile(name);
@@ -250,9 +285,18 @@ function bgm(name) {
     old.gain.gain.linearRampToValueAtTime(0, t + fade);
     old.src.stop(t + fade + 0.05);
     BGM.now = null;
+    setTimeout(() => bgmForget(old.name), CONFIG.bgmFadeMs + 200);
   }
-  const buf = name && BGM.buffers[name];
-  if (!buf) return;                                       // 끄기, 또는 아직 파일을 읽는 중
+  if (!name) return;                                      // 끄기
+  bgmLoad(name).then((buf) => {                           // 처음 쓰는 곡이면 푸는 동안 잠깐 기다림
+    if (!buf) return;
+    if (BGM.want !== name) return bgmForget(name);        // 그 사이에 다른 곡으로 바뀜
+    if (BGM.now) return;
+    bgmStart(name, buf, crossfade);
+  });
+}
+function bgmStart(name, buf, crossfade) {
+  const t = BGM.ctx.currentTime, fade = CONFIG.bgmFadeMs / 1000;
   const src = BGM.ctx.createBufferSource();
   src.buffer = buf;
   src.loop = true;
