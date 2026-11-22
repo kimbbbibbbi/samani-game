@@ -23,6 +23,10 @@ const CONFIG = {
   sfxVolume: 0.6,      // 효과음 전체 크기 (0~1)
   typeVolume: 0.25,    // 글자 타이핑 소리 크기 (0~1). 시끄러우면 줄이기
   typeEveryMs: 70,     // 타이핑 소리 최소 간격(ms). 클수록 덜 자주 남
+  bgmVolume: 0.5,      // 배경 음악 크기 (0~1)
+  bgmDuck: 0.35,       // 미니게임 중 배경 음악을 이 배율로 줄임 (0.35 = 35% 크기)
+  bgmFadeMs: 600,      // 장면이 바뀔 때 음악이 줄어들고 커지는 시간(ms)
+  creditsSpeed: 30,    // 크레딧이 올라가는 속도 (1초에 몇 px). 클수록 빠름
 };
 
 /* ---------------------------- 그림 설정 ----------------------------
@@ -179,6 +183,69 @@ function sfx(name, volume = 1) {
 function toggleMute() {
   muted = !muted;
   $("muteBtn").textContent = muted ? "소리 켜기 (M)" : "소리 끄기 (M)";
+  bgmVolumeNow();
+}
+
+/* ---------------------------- 배경 음악 ----------------------------
+   assets/audio/bgm_이름.mp3 를 장면마다 끝없이 반복 재생.
+   Web Audio 로 틀어서 반복할 때 이음새가 끊기지 않음. 파일이 없으면 조용히 넘어감.
+   브라우저는 첫 클릭·키 입력 전에는 소리를 막으므로, 그때부터 들린다.
+     bgm("title")  → 그 곡으로 바꿈 (이미 그 곡이면 그대로 둠)
+     bgm(null)     → 음악 끔
+     bgmDuck(true) → 잠깐 작게 (미니게임)                                     */
+const BGM_NAMES = ["title", "village", "eerie", "tense", "ending_happy", "ending_sad"];
+const BGM = { ctx: null, master: null, buffers: {}, now: null, want: null, ducked: false };
+(function bgmSetup() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  BGM.ctx = new AC();
+  BGM.master = BGM.ctx.createGain();
+  BGM.master.connect(BGM.ctx.destination);
+  BGM.master.gain.value = CONFIG.bgmVolume;
+  BGM_NAMES.forEach((n) => {
+    fetch(AUDIO_DIR + "bgm_" + n + ".mp3")
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
+      .then((ab) => new Promise((ok, no) => BGM.ctx.decodeAudioData(ab, ok, no)))
+      .then((buf) => { BGM.buffers[n] = buf; if (BGM.want === n && !BGM.now) bgm(n); })   // 늦게 읽혀도 재생
+      .catch(() => {});
+  });
+  const unlock = () => { if (BGM.ctx.state === "suspended") BGM.ctx.resume(); };
+  document.addEventListener("pointerdown", unlock);
+  document.addEventListener("keydown", unlock);
+})();
+
+function bgmVolumeNow() {
+  if (!BGM || !BGM.master) return;
+  const v = muted ? 0 : CONFIG.bgmVolume * (BGM.ducked ? CONFIG.bgmDuck : 1);
+  BGM.master.gain.setTargetAtTime(v, BGM.ctx.currentTime, 0.08);
+}
+function bgmDuck(on) { BGM.ducked = on; bgmVolumeNow(); }
+
+function bgm(name) {
+  BGM.want = name;
+  if (!BGM.ctx) return;
+  if (BGM.now && BGM.now.name === name) return;          // 같은 곡이면 이어서 재생
+  const t = BGM.ctx.currentTime, fade = CONFIG.bgmFadeMs / 1000;
+  const crossfade = !!BGM.now;                            // 다른 곡에서 넘어올 때만 서서히 커짐
+  if (BGM.now) {                                          // 지금 곡은 천천히 줄이고 멈춤
+    const old = BGM.now;
+    old.gain.gain.cancelScheduledValues(t);
+    old.gain.gain.setValueAtTime(old.gain.gain.value, t);
+    old.gain.gain.linearRampToValueAtTime(0, t + fade);
+    old.src.stop(t + fade + 0.05);
+    BGM.now = null;
+  }
+  const buf = name && BGM.buffers[name];
+  if (!buf) return;                                       // 끄기, 또는 아직 파일을 읽는 중
+  const src = BGM.ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const gain = BGM.ctx.createGain();
+  gain.gain.setValueAtTime(crossfade ? 0 : 1, t);
+  if (crossfade) gain.gain.linearRampToValueAtTime(1, t + fade);
+  src.connect(gain).connect(BGM.master);
+  src.start(t);
+  BGM.now = { name, src, gain };
 }
 
 function addGood(n, quiet = false) {
@@ -232,6 +299,7 @@ document.addEventListener("keydown", (e) => {
 function say(who, text, wait = true) {
   // dialogue.js 의 연출 명령 (대사 대신 화면을 바꾼다). 자세한 쓰는 법은 dialogue.js 맨 위
   if (who && who[0] === "@") return direct(who, text, wait);
+  highlightSpeaker(who);
   return new Promise((resolve) => {
     const dlg = $("dialog");
     dlg.hidden = false;
@@ -382,6 +450,15 @@ function waitClick() {
   });
 }
 
+/* 화면에 차사 그림이 있으면, 지금 말하는 차사만 밝게 하고 나머지 둘은 흐리게.
+   말하는 사람이 차사가 아니면(사만이, 저승차사, 해설) 셋 다 밝게 */
+function highlightSpeaker(who) {
+  const els = document.querySelectorAll('#sprites [data-key^="char_chasa_"]');
+  if (!els.length) return;
+  const c = CHASA.find((c) => NAMES[c.key] === who);
+  els.forEach((el) => el.classList.toggle("dimmed", !!c && el.dataset.key !== c.art));
+}
+
 /* 차사 3명을 화면에 올린다. highlight 에 번호를 주면 그 차사만 밝게 */
 function showChasa(highlight = -1, withTable = true) {
   clearSprites();
@@ -396,6 +473,7 @@ function showChasa(highlight = -1, withTable = true) {
 
 /* 타이틀 */
 async function sceneTitle() {
+  bgm("title");
   await transition(() => {
     setBg("bg_title");
     showHud(false);
@@ -414,6 +492,7 @@ async function sceneTitle() {
 
 /* 성격 질문 3개 */
 async function sceneQuiz() {
+  bgm("title");
   await transition(() => { setBg("bg_title", true); showHud(true); });
   await sayLines(SCRIPT.quizIntro);
   for (const q of SCRIPT.quiz) {
@@ -425,6 +504,7 @@ async function sceneQuiz() {
 
 /* 1스테이지: 사만이 집. 검은 화면 나레이션 → 집 → 부인에게 말 걸기(선택) */
 async function sceneHouse() {
+  bgm("village");
   const H = SCRIPT.house;
   await transition(() => { setBg("black"); showHud(true); });
   await sayLines(H.intro);                 // 이 안의 "@bg", "@show", "@fx" 가 화면을 바꾼다
@@ -471,6 +551,7 @@ async function sceneHouse() {
 
 /* 2스테이지: 장삿길 (클릭 화면) */
 async function sceneMarket() {
+  bgm("village");
   await transition(() => { setBg("bg_market"); showHud(true); });
   await sayLines(SCRIPT.marketIntro);
   clearSprites();
@@ -536,6 +617,7 @@ async function sceneMarket() {
 
 /* 컷신 (숲 · 백년해골) */
 async function sceneCutscene() {
+  bgm("eerie");
   await transition(() => { setBg("bg_forest"); showHud(true); });
   let skullShown = false;
   for (const line of SCRIPT.cutscene) {
@@ -556,6 +638,7 @@ async function sceneChasa() {
   const goodAtStart = good;   // 게임 오버 뒤 다시 할 때 점수를 장면 시작 때로 되돌리려고 기억
   while (true) {
     good = goodAtStart; updateHud();
+    bgm("tense");                                // 게임 오버 뒤 다시 할 때도 처음부터
     await transition(() => { setBg("bg_chasa"); showHud(true); showChasa(); });
     await sayLines(SCRIPT.chasaIntro);
 
@@ -633,6 +716,7 @@ async function callMinigame() {
   setHint(M.hint);
 
   Object.assign(MG, { active: true, lane: 1, count: 0, words: [] });
+  bgmDuck(true);                           // 미니게임 동안 음악 작게
   mgMove(1);
 
   const start = performance.now();
@@ -676,6 +760,7 @@ async function callMinigame() {
   });
 
   MG.active = false;
+  bgmDuck(false);
   MG.words.forEach((w) => w.el.remove());
   MG.words = [];
   setHint("");
@@ -706,6 +791,7 @@ async function treatChasa() {
 
 /* 게임 오버: 끌려가는 짧은 화면 */
 async function sceneGameOver(lines = SCRIPT.gameOver.lines) {
+  bgm(null);                               // 게임 오버: 음악 끄고 효과음만
   await transition(() => { setBg("bg_gameover", true); showHud(false); });
   const card = $("card");
   card.hidden = false;
@@ -720,6 +806,7 @@ async function sceneGameOver(lines = SCRIPT.gameOver.lines) {
 
 /* 명부 장면: 이름을 적을지 고른다. 엔딩 글자(A/B/C)를 돌려줌 */
 async function sceneLedger() {
+  bgm("eerie");
   await transition(() => { setBg("bg_ledger"); showHud(true); showChasa(-1, false); });
   const L = SCRIPT.ledger;
   await sayLines(L.slice(0, -1));
@@ -728,11 +815,42 @@ async function sceneLedger() {
   return good >= CONFIG.goodForC ? "C" : "B";
 }
 
+/* 크레딧을 화면 아래에서 위로 올린다. 글 끝이 버튼 위에 오면 멈춤.
+   클릭(누르고 있기)이나 스페이스·엔터를 누르고 있으면 빨리 감기 */
+function rollCredits(el) {
+  return new Promise((resolve) => {
+    const stopY = 250 - el.offsetHeight;            // 글 맨 아래가 y=250 (버튼 위)에 오면 멈춤
+    let y = 360, fast = false, last = performance.now();
+    const down = () => { fast = true; }, up = () => { fast = false; };
+    const keyDown = (e) => { if (e.key === " " || e.key === "Enter") fast = true; };
+    const keyUp = (e) => { if (e.key === " " || e.key === "Enter") fast = false; };
+    stage.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    document.addEventListener("keydown", keyDown);
+    document.addEventListener("keyup", keyUp);
+    function frame(now) {
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      y -= CONFIG.creditsSpeed * (fast ? 6 : 1) * dt;
+      if (y <= stopY) y = stopY;
+      el.style.transform = `translateY(${Math.round(y)}px)`;
+      if (y > stopY) return requestAnimationFrame(frame);
+      stage.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+      document.removeEventListener("keydown", keyDown);
+      document.removeEventListener("keyup", keyUp);
+      resolve();
+    }
+    el.style.transform = `translateY(${y}px)`;
+    requestAnimationFrame(frame);
+  });
+}
+
 /* 엔딩 A / B / C / D + 크레딧 */
 const ENDING_BG = { A: "end_a", B: "bg_hell", C: "end_c", D: "bg_gameover" };
 async function sceneEnding(code) {
   const E = SCRIPT.endings[code];
   const bgKey = ENDING_BG[code];
+  bgm(code === "A" || code === "C" ? "ending_happy" : "ending_sad");   // 크레딧까지 이어짐
   await transition(() => { setBg(bgKey, true); showHud(false); });
 
   // 엔딩 제목 카드
@@ -756,15 +874,19 @@ async function sceneEnding(code) {
   hideDialog();
   await waitClick();
 
-  // 크레딧
+  // 크레딧 (타이틀 곡으로 바꿈)
+  bgm("title");
   await transition(() => { setBg("bg_forest", true); });
   hideDialog();
   card.hidden = false;
-  card.className = "solid";
+  card.className = "solid roll";
   const C = SCRIPT.credits;
+  const body = C.text.split("\n")
+    .map((l) => (/^\[.+\]$/.test(l) ? `<span class="h">${l.slice(1, -1)}</span>` : l)).join("\n");
   card.innerHTML =
-    `<div class="t">${C.title}</div><div class="b">${C.text}</div>` +
-    `<div class="s">엔딩 ${code} · 선함 ${good}</div>`;
+    `<div class="roll-inner"><div class="t">${C.title}</div><div class="b">${body}</div>` +
+    `<div class="s">엔딩 ${code} · 선함 ${good}</div></div>`;
+  await rollCredits(card.querySelector(".roll-inner"));
   await choose([{ text: C.again }], { center: true });
   location.href = location.pathname;   // 처음부터 다시
 }

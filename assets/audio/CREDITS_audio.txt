@@ -14,5 +14,14 @@ sfx_correct.mp3  ←  confirmation_004.ogg
 sfx_wrong.mp3  ←  error_006.ogg
 sfx_gameover.mp3  ←  error_007.ogg
 
-sfx_saman.mp3  ←  TTSMaker로 만든 음성 (조원 제작)
+sfx_saman.mp3  ←  TTSMaker로 만든 음성 (서광일 제작)
 문·명부 효과음은 쓰지 않기로 함
+
+배경 음악 (팀 창작, Python으로 8비트 소리를 직접 합성. 멜로디는 모두 새로 작곡)
+bgm_title.mp3         ← 맹감본풀이(사만이 본풀이) 액막이 굿 순서를 곡 구성으로 (타이틀·퀴즈)
+bgm_village.mp3       ← 서우젯소리 (제주 '도레미솔라' 선법, 메기고 받기, 3소박 4박) (집·장터)
+bgm_eerie.mp3         ← 귀양풀이 (요령·북·장구, 세요성·퇴성) (숲·해골·명부)
+bgm_tense.mp3         ← 시왕맞이 굿(차사영맞이) 연물 (설쇠·북·장구·징) (저승사자·미니게임·대접)
+bgm_ending_happy.mp3  ← 오돌또기 (8마디 선소리 + 8마디 뒷소리, 굿거리) (엔딩 A·C)
+bgm_ending_sad.mp3    ← 진토굿노래 (제주 장례 민요, 세요성·퇴성) (엔딩 B·D)
+만든 코드: tools/bgm/*.py  (python3 village.py 처럼 실행하면 mp3를 다시 만듦. numpy, ffmpeg 필요)

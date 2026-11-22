@@ -111,6 +111,10 @@ html, body {
 #card.over .t { color: #e04848; font-size: 40px; }
 #card .b { font: 14px "Galmuri14", monospace; color: #f4ead5; }
 #card .s { margin-top: 12px; font: 11px "Galmuri11", monospace; color: #a99c7e; }
+/* 크레딧 스크롤: 글 덩어리(.roll-inner)가 아래에서 위로 올라감 */
+#card.roll { display: block; padding: 0; overflow: hidden; }
+#card.roll .roll-inner { position: absolute; left: 0; right: 0; top: 0; padding: 0 40px; }
+#card .h { color: #e0b860; }   /* [소제목] 줄 */
 
 /* ===== 안내 문구 / 선함 점수 / 알림 ===== */
 #hint {

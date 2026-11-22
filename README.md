@@ -34,6 +34,23 @@ UI: `ui_dialog` (608×96 대화창 틀) `title_logo` / 아이콘 32×32: `icon_h
 예: `index.html?scene=ledger&good=8`
 
 ## 조작
-클릭/Space/Enter = 다음 · 숫자키 1~3 = 선택지 · F = 전체 화면
+클릭/Space/Enter = 다음 · 숫자키 1~3 = 선택지 · F = 전체 화면 · M = 소리(효과음·음악) 끄기/켜기
+
+## 소리
+효과음은 `assets/audio/sfx_이름.mp3`, 배경 음악은 `assets/audio/bgm_이름.mp3`. 출처는 `assets/audio/CREDITS_audio.txt`.
+배경 음악은 첫 클릭·키 입력부터 들립니다 (브라우저 규칙).
+
+| 장면 | 곡 |
+|---|---|
+| 타이틀·성격 질문 | `bgm_title` |
+| 집·장터 | `bgm_village` |
+| 숲·해골 컷신, 명부 | `bgm_eerie` |
+| 저승사자·미니게임·대접 (미니게임 중엔 작게) | `bgm_tense` |
+| 게임 오버 | 음악 끔 (효과음만) |
+| 엔딩 A·C (크레딧까지) | `bgm_ending_happy` |
+| 엔딩 B·D (크레딧까지) | `bgm_ending_sad` |
+
+음악 크기는 game.js 맨 위 `CONFIG.bgmVolume`, 미니게임 중 줄이는 배율은 `bgmDuck`, 곡이 바뀔 때 줄고 커지는 시간은 `bgmFadeMs`.
+곡 바꾸기: `assets/audio/bgm_이름.mp3` 파일만 같은 이름으로 바꾸면 됩니다. 곡을 만든 코드는 `tools/bgm/`.
 
 폰트: 갈무리(Galmuri), SIL OFL 1.1 — `assets/fonts/` 에 라이선스 포함

@@ -52,7 +52,20 @@
   good_up/good_down(선함 ±), silent(미니게임 파란 글자), correct(대접 정답·미니게임 성공), wrong(대접 오답·미니게임 일찍 대답),
   gameover, saman(미니게임 발사).  재생은 `game.js`의 `sfx("이름")`. 크기는 `CONFIG.sfxVolume`, `typeVolume`, `typeEveryMs`.
 - M 키 또는 화면 오른쪽 아래 버튼으로 소리 끄기/켜기.
-- 배경음악(bgm_village, bgm_eerie, bgm_tense, bgm_ending, 국악풍)은 아직 없음. 구하면 재생 코드 추가 예정. 문·명부 효과음은 쓰지 않기로 함.
+- 문·명부 효과음은 쓰지 않기로 함.
+- 배경 음악: `assets/audio/bgm_이름.mp3`를 장면마다 끝없이 반복 재생(Web Audio, 이음새 없이). 재생은 `game.js`의 `bgm("이름")`, `bgm(null)` = 끔.
+  브라우저가 첫 클릭·키 입력 전에는 소리를 막아서, 타이틀에서 아무 데나 누르면 그때 타이틀 곡이 나온다. 곡이 바뀔 때는 서서히 줄고 커짐.
+  | 장면 | 곡 |
+  |---|---|
+  | 타이틀·성격 질문 | `bgm_title` |
+  | 집·장터 | `bgm_village` |
+  | 숲·해골 컷신, 명부 | `bgm_eerie` |
+  | 저승사자·미니게임·대접 (미니게임 중엔 작게) | `bgm_tense` |
+  | 게임 오버 | 음악 끔 (효과음만) |
+  | 엔딩 A·C (크레딧까지) | `bgm_ending_happy` |
+  | 엔딩 B·D (크레딧까지) | `bgm_ending_sad` |
+  크기·연출: `CONFIG.bgmVolume`(음악 크기), `bgmDuck`(미니게임 중 줄이는 배율), `bgmFadeMs`(곡이 바뀔 때 줄고 커지는 시간).
+  곡 바꾸는 법: `assets/audio/bgm_이름.mp3` 파일만 같은 이름으로 바꾸면 됨. 곡을 만든 파이썬 코드는 `tools/bgm/`(게임 실행엔 필요 없음), 출처는 `CREDITS_audio.txt`.
 
 ## 그림 슬롯 (파일만 넣으면 나타남)
 - `portrait_samani.png`, `portrait_wife.png`: 96×96 상반신(배경 투명). 1스테이지 부인과 대화할 때 좌우에 2배로 뜬다. 없으면 안 보임.
