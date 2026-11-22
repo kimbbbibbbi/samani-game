@@ -194,10 +194,12 @@ const SCRIPT = {
   },
 
   /* 총포상: [총을 산다]를 고르면 장삿길 끝.
+     notYet = 아이들·노인들을 둘 다 만나기 전에 말을 걸었을 때 (돌려보냄, 선택지 없음)
      paid   = 아무도 돕지 않아 돈이 남았을 때
      credit = 한 명이라도 도와 돈이 없을 때 (외상)                         */
   merchant: {
     label: "총포상",
+    notYet: [[NAMES.merchant, "지금은 식사 중이니 조금만 더 둘러보고 오시오."]],
     lines: [[NAMES.merchant, "백 냥으로 내가 파는 총을 사고 인생을 바꾸라고."]],                          // ★
     choices: [
       { text: "총을 산다", next: true },

@@ -23,10 +23,10 @@ const CONFIG = {
   sfxVolume: 0.6,      // 효과음 전체 크기 (0~1)
   typeVolume: 0.25,    // 글자 타이핑 소리 크기 (0~1). 시끄러우면 줄이기
   typeEveryMs: 70,     // 타이핑 소리 최소 간격(ms). 클수록 덜 자주 남
-  bgmVolume: 0.5,      // 배경 음악 크기 (0~1)
+  bgmVolume: 0.3,      // 배경 음악 크기 (0~1)
   bgmDuck: 0.35,       // 미니게임 중 배경 음악을 이 배율로 줄임 (0.35 = 35% 크기)
   bgmFadeMs: 600,      // 장면이 바뀔 때 음악이 줄어들고 커지는 시간(ms)
-  creditsSpeed: 30,    // 크레딧이 올라가는 속도 (1초에 몇 px). 클수록 빠름
+  creditsSpeed: 50,    // 크레딧이 올라가는 속도 (1초에 몇 px). 클수록 빠름
 };
 
 /* ---------------------------- 그림 설정 ----------------------------
@@ -192,10 +192,24 @@ function toggleMute() {
    브라우저는 첫 클릭·키 입력 전에는 소리를 막으므로, 그때부터 들린다.
      bgm("title")  → 그 곡으로 바꿈 (이미 그 곡이면 그대로 둠)
      bgm(null)     → 음악 끔
-     bgmDuck(true) → 잠깐 작게 (미니게임)                                     */
+     bgmDuck(true) → 잠깐 작게 (미니게임)
+   index.html 을 파일로 바로 열면(file://) 브라우저가 fetch 를 막아서 Web Audio 를 못 씀.
+   그때는 <audio> 로 대신 튼다 (반복되는 순간 아주 짧게 끊길 수 있음).              */
 const BGM_NAMES = ["title", "village", "eerie", "tense", "ending_happy", "ending_sad"];
-const BGM = { ctx: null, master: null, buffers: {}, now: null, want: null, ducked: false };
+const BGM = { ctx: null, master: null, buffers: {}, now: null, want: null, ducked: false,
+  fileMode: location.protocol === "file:", els: {} };
 (function bgmSetup() {
+  if (BGM.fileMode) {                                     // 파일로 열었을 때: <audio> 로 재생
+    BGM_NAMES.forEach((n) => {
+      const el = new Audio(AUDIO_DIR + "bgm_" + n + ".mp3");
+      el.loop = true; el.preload = "auto"; el._fade = 1;
+      BGM.els[n] = el;
+    });
+    const unlock = () => { if (BGM.now && BGM.now.el.paused) BGM.now.el.play().catch(() => {}); };
+    document.addEventListener("pointerdown", unlock);
+    document.addEventListener("keydown", unlock);
+    return;
+  }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   BGM.ctx = new AC();
@@ -215,6 +229,7 @@ const BGM = { ctx: null, master: null, buffers: {}, now: null, want: null, ducke
 })();
 
 function bgmVolumeNow() {
+  if (BGM.fileMode) { if (BGM.now) BGM.now.el.volume = bgmElVolume(BGM.now.el); return; }
   if (!BGM || !BGM.master) return;
   const v = muted ? 0 : CONFIG.bgmVolume * (BGM.ducked ? CONFIG.bgmDuck : 1);
   BGM.master.gain.setTargetAtTime(v, BGM.ctx.currentTime, 0.08);
@@ -223,6 +238,7 @@ function bgmDuck(on) { BGM.ducked = on; bgmVolumeNow(); }
 
 function bgm(name) {
   BGM.want = name;
+  if (BGM.fileMode) return bgmFile(name);
   if (!BGM.ctx) return;
   if (BGM.now && BGM.now.name === name) return;          // 같은 곡이면 이어서 재생
   const t = BGM.ctx.currentTime, fade = CONFIG.bgmFadeMs / 1000;
@@ -246,6 +262,35 @@ function bgm(name) {
   src.connect(gain).connect(BGM.master);
   src.start(t);
   BGM.now = { name, src, gain };
+}
+
+/* 파일로 열었을 때(file://) 쓰는 <audio> 재생. 하는 일은 위 bgm() 과 같음 */
+function bgmElVolume(el) {
+  return (muted ? 0 : CONFIG.bgmVolume * (BGM.ducked ? CONFIG.bgmDuck : 1)) * el._fade;
+}
+function bgmRamp(el, to, done) {                          // el._fade 를 bgmFadeMs 동안 to 로
+  clearInterval(el._ramp);
+  const from = el._fade, t0 = performance.now();
+  el._ramp = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / CONFIG.bgmFadeMs);
+    el._fade = from + (to - from) * k;
+    el.volume = bgmElVolume(el);
+    if (k >= 1) { clearInterval(el._ramp); if (done) done(); }
+  }, 30);
+}
+function bgmFile(name) {
+  if (BGM.now && BGM.now.name === name) return;          // 같은 곡이면 이어서 재생
+  const crossfade = !!BGM.now;
+  if (BGM.now) { const old = BGM.now.el; bgmRamp(old, 0, () => old.pause()); BGM.now = null; }
+  const el = name && BGM.els[name];
+  if (!el) return;                                        // 끄기
+  clearInterval(el._ramp);
+  el.currentTime = 0;
+  el._fade = crossfade ? 0 : 1;
+  el.volume = bgmElVolume(el);
+  el.play().catch(() => {});                              // 첫 클릭 전이면 막힘 → 클릭 때 다시 재생
+  BGM.now = { name, el };
+  if (crossfade) bgmRamp(el, 1);
 }
 
 function addGood(n, quiet = false) {
@@ -594,6 +639,12 @@ async function sceneMarket() {
 
     setHint("");
     if (id === "merchant") {
+      if (!visited.has("children") || !visited.has("elders")) {   // 아이들·노인들을 둘 다 만나야 총을 판다
+        await sayLines(SCRIPT.merchant.notYet);
+        hideDialog();
+        setHint(SCRIPT.marketHint);
+        continue;
+      }
       const i = await sayLines(SCRIPT.merchant.lines, SCRIPT.merchant.choices);
       if (SCRIPT.merchant.choices[i].next) {
         await sayLines(gaveMoney ? SCRIPT.merchant.credit : SCRIPT.merchant.paid);
