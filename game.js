@@ -178,7 +178,7 @@ if (FILE_MODE) SFX_NAMES.forEach((n) => { const a = new Audio(AUDIO_DIR + "sfx_"
 let muted = false;
 let lastType = 0;
 function sfx(name, volume = 1) {
-  if (muted) return;
+  if (muted || BGM.away) return;
   const v = Math.min(1, CONFIG.sfxVolume * volume);
   if (SFX_BUF[name] && BGM.ctx) {
     const src = BGM.ctx.createBufferSource();
@@ -214,7 +214,7 @@ function toggleMute() {
    index.html 을 파일로 바로 열면(file://) 브라우저가 fetch 를 막아서 Web Audio 를 못 씀.
    그때는 <audio> 로 대신 튼다 (반복되는 순간 아주 짧게 끊길 수 있음).              */
 const BGM_NAMES = ["title", "village", "eerie", "tense", "ending_happy", "ending_sad"];
-const BGM = { ctx: null, master: null, raw: {}, loading: {}, buffers: {}, now: null, want: null, ducked: false,
+const BGM = { ctx: null, master: null, raw: {}, loading: {}, buffers: {}, now: null, want: null, ducked: false, away: false,
   fileMode: FILE_MODE, els: {} };
 (function bgmSetup() {
   if (BGM.fileMode) {                                     // 파일로 열었을 때: <audio> 로 재생
@@ -264,14 +264,29 @@ const BGM = { ctx: null, master: null, raw: {}, loading: {}, buffers: {}, now: n
   ["pointerdown", "pointerup", "touchend", "click", "keydown"].forEach((ev) => document.addEventListener(ev, unlock, true));
 })();
 
-/* 화면을 끄거나 다른 앱·탭으로 가면 소리를 멈추고, 돌아오면 이어서 튼다.
-   (무음 모드에서도 들리게 "playback" 으로 두면 화면을 꺼도 소리가 계속 나서) */
-document.addEventListener("visibilitychange", () => {
-  const hide = document.hidden;
-  if (BGM.ctx) { if (hide) BGM.ctx.suspend().catch(() => {}); else BGM.ctx.resume().catch(() => {}); }
+/* 화면을 끄거나 홈으로 나가거나 다른 앱·탭으로 가면 소리를 멈추고, 돌아오면 이어서 튼다.
+   무음 모드에서도 들리게 "playback" 으로 두면 화면을 꺼도 소리가 계속 나서,
+   나갈 때는 ① 음악 크기를 바로 0 ② "playback" 해제 ③ 오디오 멈춤 을 모두 한다.          */
+function soundAway(hide) {
+  if (BGM.away === hide) return;
+  BGM.away = hide;
+  if (navigator.audioSession) { try { navigator.audioSession.type = hide ? "auto" : "playback"; } catch (e) {} }
+  if (BGM.ctx) {
+    if (hide) {
+      BGM.master.gain.cancelScheduledValues(BGM.ctx.currentTime);
+      BGM.master.gain.value = 0;                          // 바로 0 (오디오가 멈춰도 적용되게)
+      BGM.ctx.suspend().catch(() => {});
+    } else {
+      BGM.ctx.resume().catch(() => {});
+      bgmVolumeNow();
+    }
+  }
   if (BGM.quiet) { if (hide) BGM.quiet.pause(); else BGM.quiet.play().catch(() => {}); }
   if (BGM.fileMode && BGM.now) { if (hide) BGM.now.el.pause(); else BGM.now.el.play().catch(() => {}); }
-});   // 돌아왔을 때 브라우저가 막으면, 화면을 한 번 누를 때 위 unlock 이 다시 켬
+}   // 돌아왔을 때 브라우저가 막으면, 화면을 한 번 누를 때 위 unlock 이 다시 켬
+document.addEventListener("visibilitychange", () => soundAway(document.hidden));
+window.addEventListener("pagehide", () => soundAway(true));     // 홈으로 나가기·탭 닫기 (아이폰·아이패드)
+window.addEventListener("pageshow", () => soundAway(document.hidden));
 
 function silentWav() {                                    // 0.1초짜리 소리 없는 wav (위 unlock 에서 씀)
   const n = 800, buf = new ArrayBuffer(44 + n), d = new DataView(buf);
@@ -286,7 +301,7 @@ function silentWav() {                                    // 0.1초짜리 소리
 function bgmVolumeNow() {
   if (BGM.fileMode) { if (BGM.now) BGM.now.el.volume = bgmElVolume(BGM.now.el); return; }
   if (!BGM || !BGM.master) return;
-  const v = muted ? 0 : CONFIG.bgmVolume * (BGM.ducked ? CONFIG.bgmDuck : 1);
+  const v = (muted || BGM.away) ? 0 : CONFIG.bgmVolume * (BGM.ducked ? CONFIG.bgmDuck : 1);
   BGM.master.gain.setTargetAtTime(v, BGM.ctx.currentTime, 0.08);
 }
 function bgmDuck(on) { BGM.ducked = on; bgmVolumeNow(); }
@@ -346,7 +361,7 @@ function bgmStart(name, buf, crossfade) {
 
 /* 파일로 열었을 때(file://) 쓰는 <audio> 재생. 하는 일은 위 bgm() 과 같음 */
 function bgmElVolume(el) {
-  return (muted ? 0 : CONFIG.bgmVolume * (BGM.ducked ? CONFIG.bgmDuck : 1)) * el._fade;
+  return ((muted || BGM.away) ? 0 : CONFIG.bgmVolume * (BGM.ducked ? CONFIG.bgmDuck : 1)) * el._fade;
 }
 function bgmRamp(el, to, done) {                          // el._fade 를 bgmFadeMs 동안 to 로
   clearInterval(el._ramp);
