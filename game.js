@@ -242,10 +242,36 @@ const BGM = { ctx: null, master: null, raw: {}, loading: {}, buffers: {}, now: n
       .then((buf) => { if (buf) SFX_BUF[n] = buf; })
       .catch(() => {});
   });
-  const unlock = () => { if (BGM.ctx.state === "suspended") BGM.ctx.resume(); };
-  document.addEventListener("pointerdown", unlock);
-  document.addEventListener("keydown", unlock);
+  // 첫 터치·클릭·키 입력 때 소리를 깨움. 아이폰·아이패드는 pointerdown 만으로는 안 깨어나서 touchend·click 도 받음
+  let woke = false;
+  const unlock = () => {
+    if (BGM.ctx.state !== "running") BGM.ctx.resume().catch(() => {});   // suspended, interrupted(전화·앱 전환 뒤)
+    if (woke) return;
+    woke = true;
+    const b = BGM.ctx.createBufferSource();               // 빈 소리를 한 번 틀어 오디오를 확실히 깨움
+    b.buffer = BGM.ctx.createBuffer(1, 1, 22050);
+    b.connect(BGM.ctx.destination);
+    b.start(0);
+    // 아이폰·아이패드 무음 모드에서도 들리게: Web Audio 는 무음 모드면 꺼지는데, "playback" 으로 두면 들림
+    if (navigator.audioSession) { try { navigator.audioSession.type = "playback"; } catch (e) {} }
+    else if (/iP(hone|ad|od)|Macintosh/.test(navigator.userAgent) && "ontouchend" in document) {
+      const quiet = new Audio(silentWav());                // 옛 iOS: 소리 없는 <audio> 를 하나 반복해 두면 같은 효과
+      quiet.loop = true;
+      quiet.play().catch(() => {});
+    }
+  };
+  ["pointerdown", "pointerup", "touchend", "click", "keydown"].forEach((ev) => document.addEventListener(ev, unlock, true));
 })();
+
+function silentWav() {                                    // 0.1초짜리 소리 없는 wav (위 unlock 에서 씀)
+  const n = 800, buf = new ArrayBuffer(44 + n), d = new DataView(buf);
+  const str = (o, t) => { for (let i = 0; i < t.length; i++) d.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, "RIFF"); d.setUint32(4, 36 + n, true); str(8, "WAVEfmt "); d.setUint32(16, 16, true);
+  d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, 8000, true); d.setUint32(28, 8000, true);
+  d.setUint16(32, 1, true); d.setUint16(34, 8, true); str(36, "data"); d.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) d.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}
 
 function bgmVolumeNow() {
   if (BGM.fileMode) { if (BGM.now) BGM.now.el.volume = bgmElVolume(BGM.now.el); return; }

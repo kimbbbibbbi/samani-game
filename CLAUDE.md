@@ -55,6 +55,7 @@
   효과음과 배경 음악은 Web Audio 로 재생(효과음은 미리 풀어 두고, 소리마다 `<audio>`를 새로 만들지 않음 — 아이패드 사파리 끊김 방지).
   배경 음악은 mp3 파일만 미리 받아 두고, 곡을 푸는(decode) 건 그 곡이 필요할 때만, 다 쓴 곡은 메모리에서 버림.
   `index.html`을 파일로 바로 열면(file://) 브라우저가 fetch를 막아서 효과음·음악 모두 `<audio>`로 대신 재생.
+  아이폰·아이패드: 첫 터치(touchend·click)에서 소리를 깨우고, 무음 모드에서도 들리게 `navigator.audioSession.type = "playback"`(없는 옛 iOS는 소리 없는 `<audio>` 하나를 반복 재생).
 - M 키 또는 화면 오른쪽 아래 버튼으로 소리 끄기/켜기.
 - 문·명부 효과음은 쓰지 않기로 함.
 - 배경 음악: `assets/audio/bgm_이름.mp3`를 장면마다 끝없이 반복 재생(Web Audio, 이음새 없이). 재생은 `game.js`의 `bgm("이름")`, `bgm(null)` = 끔.
