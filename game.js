@@ -258,10 +258,20 @@ const BGM = { ctx: null, master: null, raw: {}, loading: {}, buffers: {}, now: n
       const quiet = new Audio(silentWav());                // 옛 iOS: 소리 없는 <audio> 를 하나 반복해 두면 같은 효과
       quiet.loop = true;
       quiet.play().catch(() => {});
+      BGM.quiet = quiet;
     }
   };
   ["pointerdown", "pointerup", "touchend", "click", "keydown"].forEach((ev) => document.addEventListener(ev, unlock, true));
 })();
+
+/* 화면을 끄거나 다른 앱·탭으로 가면 소리를 멈추고, 돌아오면 이어서 튼다.
+   (무음 모드에서도 들리게 "playback" 으로 두면 화면을 꺼도 소리가 계속 나서) */
+document.addEventListener("visibilitychange", () => {
+  const hide = document.hidden;
+  if (BGM.ctx) { if (hide) BGM.ctx.suspend().catch(() => {}); else BGM.ctx.resume().catch(() => {}); }
+  if (BGM.quiet) { if (hide) BGM.quiet.pause(); else BGM.quiet.play().catch(() => {}); }
+  if (BGM.fileMode && BGM.now) { if (hide) BGM.now.el.pause(); else BGM.now.el.play().catch(() => {}); }
+});   // 돌아왔을 때 브라우저가 막으면, 화면을 한 번 누를 때 위 unlock 이 다시 켬
 
 function silentWav() {                                    // 0.1초짜리 소리 없는 wav (위 unlock 에서 씀)
   const n = 800, buf = new ArrayBuffer(44 + n), d = new DataView(buf);
