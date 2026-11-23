@@ -992,7 +992,7 @@ function rollCredits(el) {
 }
 
 /* 엔딩 A / B / C / D + 크레딧 */
-const ENDING_BG = { A: "end_a", B: "bg_hell", C: "end_c", D: "bg_gameover" };
+const ENDING_BG = { A: "bg_house_rich", B: "bg_hell", C: "end_c", D: "bg_gameover" };
 async function sceneEnding(code) {
   const E = SCRIPT.endings[code];
   const bgKey = ENDING_BG[code];
