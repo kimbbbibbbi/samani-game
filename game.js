@@ -656,7 +656,9 @@ async function sceneHouse() {
   await new Promise((resolve) => {
     if (!wife) return resolve();
     wife.classList.add("npc");
-    wife.addEventListener("click", (e) => { e.stopPropagation(); wife.classList.remove("npc"); resolve(); }, { once: true });
+    const done = () => { pickByKey = null; wife.classList.remove("npc"); resolve(); };
+    wife.addEventListener("click", (e) => { e.stopPropagation(); done(); }, { once: true });
+    pickByKey = (i) => { if (i === 0) done(); };   // 숫자키 1 = 부인 누르기 (키보드 시연용)
   });
   setHint("");
   const p1 = addSprite("portrait_samani", { cx: 510, bottom: 252 });
@@ -682,7 +684,9 @@ async function sceneHouse() {
   $("sprites").appendChild(door);
   setHint(H.doorHint);
   await new Promise((resolve) => {
-    door.addEventListener("click", (e) => { e.stopPropagation(); resolve(); }, { once: true });
+    const done = () => { pickByKey = null; resolve(); };
+    door.addEventListener("click", (e) => { e.stopPropagation(); done(); }, { once: true });
+    pickByKey = (i) => { if (i === 0) done(); };   // 숫자키 1 = 문 누르기
   });
   setHint("");
   door.remove();
@@ -724,12 +728,15 @@ async function sceneMarket() {
   while (true) {
     // NPC 클릭 기다리기
     clickedNpc = "wait";
+    // 숫자키로 NPC 누르기 (키보드 시연용): 1 아이들, 2 노인들, 3 오사만이, 4 총포상 (MARKET_NPCS 순서)
+    pickByKey = (i) => { const k = Object.keys(MARKET_NPCS)[i]; if (k && clickedNpc === "wait") clickedNpc = k; };
     const id = await new Promise((resolve) => {
       const t = setInterval(() => {
         if (clickedNpc !== "wait") { clearInterval(t); resolve(clickedNpc); }
       }, 30);
     });
     clickedNpc = null;
+    pickByKey = null;
     if (id !== "merchant" && visited.has(id)) continue;   // 이미 말 건 사람
 
     setHint("");

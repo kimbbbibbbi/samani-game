@@ -45,6 +45,7 @@
 - 실행: 이 폴더에서 `python3 -m http.server 8000` → http://localhost:8000
 - 바로 가기: `?scene=quiz|house|market|cutscene|chasa|ledger|gameover|ending_a|ending_b|ending_c|ending_d` + `&good=8`(선함 지정) + `&fast=1`(글자 즉시)
 - 조작: 클릭/Space/Enter 다음, 숫자키 1~3 선택, F 전체 화면, M 소리 끄기
+- 키보드만으로 시연: 집에서 1 = 부인 누르기, 1 = 문 누르기. 장터에서 1 아이들, 2 노인들, 3 오사만이, 4 총포상 (`MARKET_NPCS` 순서)
 - 변경 후에는 엔딩 A·B·C·D와 게임 오버 경로를 각각 끝까지 확인할 것. 대사가 대화창(3줄)을 넘치지 않는지도.
 
 ## 소리
