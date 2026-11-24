@@ -136,6 +136,10 @@ html, body {
 
 #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .3s; }
 #fade.on { opacity: 1; }
+/* 화면 전환 효과 (game.js "화면 전환 효과"). 대화창·HUD 위, 클릭은 통과 */
+#wipe { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+#wipe .iris { position: absolute; border-radius: 50%; box-shadow: 0 0 0 2000px #000; }
+#wipe .blind { position: absolute; left: 0; width: 640px; height: 37px; background: #000; transform: scaleY(0); }  /* 37px: 줄 사이 틈 방지로 1px 겹침 */
 
 #fsBtn {
   position: fixed; right: 6px; bottom: 6px; z-index: 5; opacity: .35;

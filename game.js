@@ -26,6 +26,7 @@ const CONFIG = {
   bgmVolume: 0.3,      // 배경 음악 크기 (0~1)
   bgmDuck: 0.35,       // 미니게임 중 배경 음악을 이 배율로 줄임 (0.35 = 35% 크기)
   bgmFadeMs: 600,      // 장면이 바뀔 때 음악이 줄어들고 커지는 시간(ms)
+  transitionMs: 500,   // 장면 전환 효과가 닫히는 시간 = 열리는 시간 (ms)
   creditsSpeed: 50,    // 크레딧이 올라가는 속도 (1초에 몇 px). 클수록 빠름
 };
 
@@ -481,7 +482,12 @@ function say(who, text, wait = true) {
 /* 연출 명령 실행.  ["@bg", 배경]  ["@show", 그림, 가로중심]  ["@fx", 글자, 가로, 세로]  ["@wait", 밀리초] */
 async function direct(cmd, a, b, c) {
   const args = Array.isArray(a) ? a : [a];
-  if (cmd === "@bg") {                       // 배경을 부드럽게 바꿈
+  if (cmd === "@bg" && args[1] === "iris") { // ["@bg", 배경, "iris"] = 원이 닫혔다가 새 배경으로 열림
+    sfx("transition");
+    await irisClose(CONFIG.transitionMs);
+    setBg(args[0]);
+    irisOpen(CONFIG.transitionMs);            // 열리는 동안 기다리지 않음 (뒤의 @show 가 바로 올라오게)
+  } else if (cmd === "@bg") {                // 배경을 부드럽게 바꿈
     const f = $("fade");
     f.classList.add("on"); sfx("transition"); await sleep(320);
     setBg(args[0]);
@@ -566,11 +572,139 @@ async function sayLines(lines, choices) {
 function hideDialog() { $("dialog").hidden = true; $("choices").innerHTML = ""; }
 
 /* ---------------------------- 4) 장면 전환 ---------------------------- */
-async function transition(setup) {
+
+/* ===================== 화면 전환 효과 =====================
+   transition(setup, 종류) 가 쓰는 효과 4가지.
+     "fade"   페이드     천천히 까매졌다가 밝아짐
+     "iris"   원형       가운데로 검은 원이 좁아지며 닫히고, 커지며 열림
+     "pixel"  픽셀       화면이 큰 네모로 뭉개지다 까매지고, 반대로 선명해짐 (사파리는 fade로 대신)
+     "blinds" 블라인드   가로 줄 10개가 위에서부터 한 줄씩 덮였다가 걷힘
+   효과마다 close(닫힘: 화면을 다 가림) 와 open(열림: 다음 장면을 보여 줌) 두 가지.
+   시간은 CONFIG.transitionMs. 효과 그림은 #stage 맨 위의 #wipe 에 그림(클릭은 그대로 통과).
+   =========================================================== */
+const CENTER = { x: 320, y: 180 };            // 화면 가운데
+const wipe = document.createElement("div");   // 효과 그림을 올리는 맨 위 투명 막
+wipe.id = "wipe";
+stage.appendChild(wipe);
+
+// 사파리(아이폰·아이패드의 모든 브라우저 포함)는 픽셀 필터가 제대로 안 돼서 fade로 대신함
+const PIXEL_OK = !(/AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent));
+
+// 0 → 1 로 ms 동안 바뀌는 값 k 를 매 화면마다 onFrame(k) 에 넘겨 줌
+function animate(ms, onFrame) {
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    onFrame(0);                                // 첫 모양은 바로 (한 화면이라도 까맣게 번쩍이지 않게)
+    const step = (now) => {
+      const k = Math.max(0, Math.min(1, (now - t0) / ms));   // 0~1 사이로 (첫 화면의 시각이 조금 앞설 수 있음)
+      onFrame(k);
+      if (k < 1) requestAnimationFrame(step); else resolve();
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+// 1) 페이드: 검은 막(#fade)을 ms 동안 덮음 / 걷음
+function fadeClose(ms) {
   const f = $("fade");
+  f.style.transitionDuration = ms + "ms";
   f.classList.add("on");
+  return sleep(ms + 30);
+}
+async function fadeOpen(ms) {
+  const f = $("fade");
+  f.style.transitionDuration = ms + "ms";
+  f.classList.remove("on");
+  await sleep(ms + 30);
+  f.style.transitionDuration = "";             // 컷신 @bg 는 원래 속도로
+}
+
+// 2) 원형: 가운데가 뚫린 원(바깥은 큰 그림자로 까맣게). 지름을 16px 단위로 바꿔서 도트 느낌
+function irisSize(pos) {                       // 화면 네 귀퉁이까지 다 보이는 지름
+  const dx = Math.max(pos.x, 640 - pos.x), dy = Math.max(pos.y, 360 - pos.y);
+  return Math.ceil(2 * Math.hypot(dx, dy) / 16) * 16 + 16;
+}
+function irisRun(from, to, ms, pos) {
+  let el = wipe.querySelector(".iris");
+  if (!el) { el = document.createElement("div"); el.className = "iris"; wipe.appendChild(el); }
+  return animate(ms, (k) => {
+    const d = Math.round((from + (to - from) * k) / 16) * 16;
+    el.style.width = el.style.height = d + "px";
+    el.style.left = pos.x - d / 2 + "px";
+    el.style.top = pos.y - d / 2 + "px";
+  }).then(() => el);
+}
+function irisClose(ms, pos = CENTER) { return irisRun(irisSize(pos), 0, ms, pos); }
+async function irisOpen(ms, pos = CENTER) { (await irisRun(0, irisSize(pos), ms, pos)).remove(); }
+
+// 3) 픽셀: 배경·인물(#bg, #sprites)에 SVG 필터를 걸고 네모 크기를 1 → 32px 로 키움. 마지막 0.15초는 검은 막
+wipe.insertAdjacentHTML("beforeend",
+  `<svg width="0" height="0" style="position:absolute"><filter id="pixelate" filterUnits="userSpaceOnUse"
+     primitiveUnits="userSpaceOnUse" x="0" y="0" width="640" height="360" color-interpolation-filters="sRGB">
+     <feFlood x="0" y="0" width="1" height="1"/><feComposite width="1" height="1"/><feTile result="dots"/>
+     <feComposite in="SourceGraphic" in2="dots" operator="in"/><feMorphology operator="dilate" radius="0"/>
+   </filter></svg>`);
+function pixelSet(size) {                      // 네모 크기를 size px 로. 2 미만이면 필터를 뗌
+  const b = Math.round(size), r = Math.floor(b / 2);
+  const f = $("pixelate");
+  f.querySelector("feFlood").setAttribute("x", r);
+  f.querySelector("feFlood").setAttribute("y", r);
+  f.querySelector("feComposite").setAttribute("width", b);
+  f.querySelector("feComposite").setAttribute("height", b);
+  f.querySelector("feMorphology").setAttribute("radius", r);
+  for (const el of [$("bg"), $("sprites")]) {
+    const dim = el.classList.contains("dim") ? "brightness(.45) " : "";   // 어둡게 한 배경은 어둡게 그대로
+    el.style.filter = b < 2 ? "" : dim + "url(#pixelate)";
+  }
+}
+async function pixelClose(ms) {
+  const black = Math.min(150, ms / 2);
+  setTimeout(() => fadeClose(black), ms - black);   // 끝 무렵 까맣게
+  await animate(ms, (k) => pixelSet(1 + 31 * k));
+  await sleep(30);
+}
+async function pixelOpen(ms) {
+  fadeOpen(Math.min(150, ms / 2));                   // 처음에 검은 막을 걷고
+  await animate(ms, (k) => pixelSet(32 - 31 * k));   // 점점 선명하게
+  pixelSet(1);
+}
+
+// 4) 블라인드: 높이 36px 줄 10개. 줄마다 40ms 씩 늦게 시작, 위에서 아래로 차오름
+function blindsRun(closing, ms) {
+  let strips = [...wipe.querySelectorAll(".blind")];
+  if (!strips.length) {
+    strips = Array.from({ length: 10 }, (_, i) => {
+      const b = document.createElement("div");
+      b.className = "blind";
+      b.style.top = i * 36 + "px";
+      wipe.appendChild(b);
+      return b;
+    });
+  }
+  const gap = Math.min(40, ms / 12), dur = Math.max(60, ms - gap * 9);
+  strips.forEach((b, i) => {
+    b.style.transformOrigin = closing ? "top" : "bottom";   // 닫힐 땐 위에서 차오르고, 열릴 땐 아래로 걷힘
+    b.animate([{ transform: `scaleY(${closing ? 0 : 1})` }, { transform: `scaleY(${closing ? 1 : 0})` }],
+      { duration: dur, delay: i * gap, fill: "forwards" });
+  });
+  return sleep(gap * 9 + dur + 30).then(() => { if (!closing) strips.forEach((b) => b.remove()); });
+}
+
+const WIPES = {
+  fade:   { close: (ms) => fadeClose(ms),          open: (ms) => fadeOpen(ms) },
+  iris:   { close: (ms, pos) => irisClose(ms, pos), open: (ms, pos) => irisOpen(ms, pos) },
+  pixel:  { close: (ms) => pixelClose(ms),         open: (ms) => pixelOpen(ms) },
+  blinds: { close: (ms) => blindsRun(true, ms),    open: (ms) => blindsRun(false, ms) },
+};
+
+/* 장면 전환: [닫힘 효과] → 화면이 다 가려진 동안 정리 + setup() → [열림 효과]
+   type = "fade" | "iris" | "pixel" | "blinds".  iris 는 pos = { x, y } 로 원의 중심을 정할 수 있음 */
+async function transition(setup, type = "fade", pos = CENTER) {
+  if (type === "pixel" && !PIXEL_OK) type = "fade";
+  const fx = WIPES[type] || WIPES.fade;
+  const ms = CONFIG.transitionMs;
   sfx("transition");
-  await sleep(320);
+  await fx.close(ms, pos);
   hideDialog();
   clearSprites();
   $("titleui").hidden = true;
@@ -578,8 +712,7 @@ async function transition(setup) {
   setHint("");
   setup();
   await sleep(60);
-  f.classList.remove("on");
-  await sleep(320);
+  await fx.open(ms, pos);
 }
 
 /* 클릭할 때까지 기다림 (카드 화면용) */
@@ -646,7 +779,7 @@ async function sceneQuiz() {
 async function sceneHouse() {
   bgm("village");
   const H = SCRIPT.house;
-  await transition(() => { setBg("black"); showHud(true); });
+  await transition(() => { setBg("black"); showHud(true); });   // 원형은 집 그림이 나올 때만 (dialogue.js 의 ["@bg", "bg_house", "iris"])
   await sayLines(H.intro);                 // 이 안의 "@bg", "@show", "@fx" 가 화면을 바꾼다
   hideDialog();
 
@@ -696,7 +829,7 @@ async function sceneHouse() {
 /* 2스테이지: 장삿길 (클릭 화면) */
 async function sceneMarket() {
   bgm("village");
-  await transition(() => { setBg("bg_market"); showHud(true); });
+  await transition(() => { setBg("bg_market"); showHud(true); }, "blinds");
   await sayLines(SCRIPT.marketIntro);
   clearSprites();
 
@@ -792,7 +925,7 @@ async function sceneChasa() {
   while (true) {
     good = goodAtStart; updateHud();
     bgm("tense");                                // 게임 오버 뒤 다시 할 때도 처음부터
-    await transition(() => { setBg("bg_chasa"); showHud(true); showChasa(); });
+    await transition(() => { setBg("bg_chasa"); showHud(true); showChasa(); }, "pixel");
     await sayLines(SCRIPT.chasaIntro);
 
     const result = await callMinigame();          // "ok" / "early" / "late"
@@ -873,7 +1006,7 @@ async function callMinigame() {
   mgMove(1);
 
   const start = performance.now();
-  let nextVolley = 800;   // 첫 발사는 1초 뒤
+  let nextVolley = 800;   // 첫 발사는 0.8초 뒤
   const result = await new Promise((resolve) => {
     function frame(now) {
       const t = now - start;
@@ -945,7 +1078,7 @@ async function treatChasa() {
 /* 게임 오버: 끌려가는 짧은 화면 */
 async function sceneGameOver(lines = SCRIPT.gameOver.lines) {
   bgm(null);                               // 게임 오버: 음악 끄고 효과음만
-  await transition(() => { setBg("bg_gameover", true); showHud(false); });
+  await transition(() => { setBg("bg_gameover", true); showHud(false); }, "iris");
   const card = $("card");
   card.hidden = false;
   card.className = "over";
@@ -1050,7 +1183,7 @@ async function sceneEnding(code) {
      ?good=8      선함 점수를 미리 정해 둠
      ?fast=1      글자를 한 번에 표시 (빠른 테스트)                           */
 async function main() {
-  if (params.has("fast")) CONFIG.typeMs = 0;
+  if (params.has("fast")) { CONFIG.typeMs = 0; CONFIG.transitionMs = 200; }
   if (params.has("good")) good = Number(params.get("good")) || 0;
   updateHud();
 
